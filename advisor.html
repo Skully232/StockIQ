@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockIQ — Investment Advisor</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand"><span class="brand-icon">◈</span><span class="brand-name">StockIQ</span></div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">US Markets</a>
+      <a href="india.html" class="nav-link">India</a>
+      <a href="portfolio.html" class="nav-link">Portfolio</a>
+      <a href="advisor.html" class="nav-link active">Advisor</a>
+      <a href="scanner.html" class="nav-link">Scanner</a>
+      <a href="settings.html" class="nav-link">Settings</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-btn" onclick="cycleTheme()">◐</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Investment Advisor</h1>
+        <p class="page-subtitle">Tell AI your budget & goals — get a complete research-backed investment plan</p>
+      </div>
+    </div>
+
+    <!-- Input Form -->
+    <div class="advisor-form" id="advisorForm">
+      <div class="advisor-grid">
+
+        <div class="form-section">
+          <div class="form-section-title">💰 Your Budget</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Investment Amount</label>
+              <input type="number" id="budget" class="ticker-input" placeholder="e.g. 50000" min="1"/>
+            </div>
+            <div class="form-group">
+              <label>Currency</label>
+              <select id="currency" class="exchange-select w100">
+                <option value="USD">USD ($)</option>
+                <option value="INR">INR (₹)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">🎯 Investment Goals</div>
+          <div class="form-group">
+            <label>Primary Goal</label>
+            <select id="goal" class="exchange-select w100">
+              <option value="wealth">Long-term Wealth Building</option>
+              <option value="income">Passive Income / Dividends</option>
+              <option value="growth">Aggressive Growth</option>
+              <option value="balanced">Balanced Growth + Income</option>
+              <option value="capital">Capital Preservation</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:0.75rem">
+            <label>Investment Horizon</label>
+            <select id="horizon" class="exchange-select w100">
+              <option value="short">Short-term (< 1 year)</option>
+              <option value="medium" selected>Medium-term (1–5 years)</option>
+              <option value="long">Long-term (5+ years)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">⚖️ Risk Profile</div>
+          <div class="risk-slider-wrap">
+            <input type="range" id="riskSlider" min="1" max="5" value="3" class="risk-slider" oninput="updateRiskLabel()"/>
+            <div class="risk-labels">
+              <span>Very Low</span><span>Low</span><span>Moderate</span><span>High</span><span>Very High</span>
+            </div>
+            <div class="risk-value" id="riskLabel">Moderate Risk</div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">🌍 Market Preference</div>
+          <div class="form-group">
+            <label>Markets to Invest In</label>
+            <select id="market" class="exchange-select w100">
+              <option value="us">US Stocks Only</option>
+              <option value="india">Indian Stocks Only (NSE/BSE)</option>
+              <option value="both" selected>Both US + India</option>
+              <option value="global">Global (US + India + ETFs)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:0.75rem">
+            <label>Sectors of Interest (optional)</label>
+            <input type="text" id="sectors" class="ticker-input w100" placeholder="e.g. Technology, Banking, EV, Pharma"/>
+          </div>
+        </div>
+
+        <div class="form-section full-width">
+          <div class="form-section-title">📝 Additional Context (optional)</div>
+          <textarea id="context" class="advisor-textarea" placeholder="Tell the AI anything relevant: your age, existing holdings, things to avoid, specific stocks you're interested in, tax considerations, etc."></textarea>
+        </div>
+
+      </div>
+
+      <div class="advisor-submit-row">
+        <button class="analyze-btn big-btn" onclick="runAdvisor()">◈ Generate Investment Plan ▶</button>
+        <p class="advisor-disclaimer">AI provides research and analysis only — not financial advice. Always do your own due diligence.</p>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="advisorLoading" class="loading-state hidden">
+      <div class="loader-ring"></div>
+      <p>AI is researching markets and building your personalized investment plan...</p>
+      <p class="advisor-loading-sub">This may take 15–30 seconds for a thorough analysis</p>
+    </div>
+
+    <!-- Results -->
+    <div id="advisorResults" class="hidden">
+      <div class="advisor-results-header">
+        <h2 class="section-title">Your Investment Plan</h2>
+        <div class="advisor-actions">
+          <button class="refresh-ai-btn" onclick="runAdvisor()">↻ Regenerate</button>
+          <button class="refresh-ai-btn" onclick="resetAdvisor()">← New Plan</button>
+        </div>
+      </div>
+
+      <div id="advisorPlan" class="ai-card">
+        <div class="ai-content" id="advisorPlanContent"></div>
+      </div>
+
+      <!-- Follow-up chat -->
+      <div class="ai-card chat-card">
+        <div class="card-header">
+          <span>💬 Ask follow-up questions <span class="ai-badge">Groq LLM</span></span>
+          <button class="refresh-ai-btn" onclick="clearAdvisorChat()">✕ Clear</button>
+        </div>
+        <div id="advisorChatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="advisorChatInput" class="ticker-input chat-input" placeholder="e.g. Tell me more about the tech allocation... or Can I add more to HDFC Bank?" onkeydown="if(event.key==='Enter') sendAdvisorChat()"/>
+          <button class="analyze-btn" onclick="sendAdvisorChat()">Send ▶</button>
+        </div>
+        <div class="chat-suggestions">
+          <button class="quick-chip" onclick="askAdvisor('What are the biggest risks in this plan?')">Risks in this plan</button>
+          <button class="quick-chip" onclick="askAdvisor('How should I rebalance quarterly?')">Rebalancing strategy</button>
+          <button class="quick-chip" onclick="askAdvisor('What if the market crashes 20%?')">Downside scenario</button>
+          <button class="quick-chip" onclick="askAdvisor('Which stock in this plan has the most upside?')">Most upside</button>
+          <button class="quick-chip" onclick="askAdvisor('How do I start buying these? What order?')">How to start buying</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const riskNames = ['', 'Very Low — Capital Preservation', 'Low — Conservative', 'Moderate — Balanced', 'High — Growth Oriented', 'Very High — Aggressive'];
+    function updateRiskLabel() {
+      document.getElementById('riskLabel').textContent = riskNames[document.getElementById('riskSlider').value];
+    }
+
+    let advisorPlanText = '';
+    let advisorChatHistory = [];
+
+    async function runAdvisor() {
+      const key = localStorage.getItem('groq_api_key');
+      if (!key) { alert('Please add your Groq API key in Settings first.'); return; }
+
+      const budget = document.getElementById('budget').value;
+      if (!budget || budget <= 0) { alert('Please enter a valid investment amount.'); return; }
+
+      const currency = document.getElementById('currency').value;
+      const goal = document.getElementById('goal').options[document.getElementById('goal').selectedIndex].text;
+      const horizon = document.getElementById('horizon').options[document.getElementById('horizon').selectedIndex].text;
+      const risk = riskNames[document.getElementById('riskSlider').value];
+      const market = document.getElementById('market').options[document.getElementById('market').selectedIndex].text;
+      const sectors = document.getElementById('sectors').value.trim();
+      const context = document.getElementById('context').value.trim();
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      const sym = currency === 'INR' ? '₹' : '$';
+
+      setVisible('advisorForm', false);
+      setVisible('advisorResults', false);
+      setVisible('advisorLoading', true);
+
+      const prompt = `You are a senior investment advisor and portfolio manager with 20+ years of experience across global markets. A client needs a comprehensive, research-backed investment plan.
+
+**CLIENT PROFILE:**
+- Investment Budget: ${sym}${parseFloat(budget).toLocaleString()} ${currency}
+- Primary Goal: ${goal}
+- Investment Horizon: ${horizon}
+- Risk Tolerance: ${risk}
+- Market Preference: ${market}
+${sectors ? `- Sectors of Interest: ${sectors}` : ''}
+${context ? `- Additional Context: ${context}` : ''}
+
+**Provide a COMPREHENSIVE investment plan with the following structure:**
+
+## 1. Portfolio Overview
+Brief summary of the strategy, expected returns, and key philosophy.
+
+## 2. Asset Allocation
+Recommended allocation percentages across asset classes (equities, ETFs, cash, etc.) with a brief rationale.
+
+## 3. Stock Recommendations
+For each recommended stock/ETF, provide:
+- **Ticker & Name** — Exchange
+- **Allocation**: ${sym}X,XXX (X% of portfolio)
+- **Why**: 2-3 sentences on why this fits the profile
+- **Entry Strategy**: Buy all at once vs. DCA (dollar/rupee cost average)
+- **Watch**: Key risk or metric to monitor
+
+Include 6–10 specific picks appropriate for the market preference and risk level.
+
+## 4. Diversification Analysis
+Sector breakdown, geographic distribution, risk concentration notes.
+
+## 5. Investment Strategy
+- Lump sum vs. SIP/DCA recommendation
+- Suggested timeline for building the position
+- Rebalancing frequency
+
+## 6. Risk Management
+- Stop-loss or review triggers
+- Hedging suggestions if appropriate
+- What to do in a market downturn
+
+## 7. Key Metrics to Track
+3–5 specific metrics the investor should monitor monthly.
+
+## 8. 12-Month Roadmap
+Month-by-month action plan for deploying this capital.
+
+Be specific with numbers, tickers, and allocations. This should be actionable and professional. Use markdown formatting with clear headers.`;
+
+      try {
+        const res = await callGroq(key, model, prompt);
+        advisorPlanText = res;
+        advisorChatHistory = [];
+        document.getElementById('advisorPlanContent').innerHTML = markdownToHtml(res);
+        setVisible('advisorLoading', false);
+        setVisible('advisorResults', true);
+      } catch(e) {
+        setVisible('advisorLoading', false);
+        setVisible('advisorForm', true);
+        alert('AI Error: ' + e.message);
+      }
+    }
+
+    function resetAdvisor() {
+      advisorPlanText = '';
+      advisorChatHistory = [];
+      clearAdvisorChat();
+      setVisible('advisorResults', false);
+      setVisible('advisorForm', true);
+    }
+
+    function clearAdvisorChat() {
+      advisorChatHistory = [];
+      document.getElementById('advisorChatMessages').innerHTML = '';
+    }
+
+    function askAdvisor(text) {
+      document.getElementById('advisorChatInput').value = text;
+      sendAdvisorChat();
+    }
+
+    async function sendAdvisorChat() {
+      const input = document.getElementById('advisorChatInput');
+      const msg = input.value.trim();
+      if (!msg) return;
+      const key = localStorage.getItem('groq_api_key');
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      if (!key) return;
+
+      input.value = '';
+      appendAdvisorMsg('user', msg);
+      const thinkingId = appendAdvisorMsg('assistant', '<div class="ai-loading"><div class="loader-ring small"></div> Thinking...</div>', true);
+
+      const systemPrompt = `You are a senior investment advisor. You just provided this investment plan to a client:
+
+${advisorPlanText}
+
+The client has a follow-up question. Answer it specifically in context of the plan above. Be concise and actionable. Use markdown formatting.`;
+
+      advisorChatHistory.push({ role: 'user', content: msg });
+
+      try {
+        const res = await callGroqChat(key, model, systemPrompt, advisorChatHistory);
+        advisorChatHistory.push({ role: 'assistant', content: res });
+        document.getElementById(thinkingId).outerHTML = `<div class="chat-msg assistant"><div class="chat-label">◈ AI</div><div class="chat-bubble">${markdownToHtml(res)}</div></div>`;
+      } catch(e) {
+        document.getElementById(thinkingId).outerHTML = `<div class="chat-msg assistant"><div class="chat-label">◈ AI</div><div class="chat-bubble ai-error">⚠ ${e.message}</div></div>`;
+      }
+
+      const msgs = document.getElementById('advisorChatMessages');
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function appendAdvisorMsg(role, html, returnId = false) {
+      const msgs = document.getElementById('advisorChatMessages');
+      const id = 'msg-' + Date.now() + Math.random().toString(36).slice(2);
+      const label = role === 'user' ? 'You' : '◈ AI';
+      msgs.innerHTML += `<div class="chat-msg ${role}" id="${id}"><div class="chat-label">${label}</div><div class="chat-bubble">${html}</div></div>`;
+      msgs.scrollTop = msgs.scrollHeight;
+      if (returnId) return id;
+    }
+
+    initTheme();
+  </script>
+</body>
+</html>

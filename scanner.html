@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockIQ — Market Scanner</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand"><span class="brand-icon">◈</span><span class="brand-name">StockIQ</span></div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">US Markets</a>
+      <a href="india.html" class="nav-link">India</a>
+      <a href="portfolio.html" class="nav-link">Portfolio</a>
+      <a href="advisor.html" class="nav-link">Advisor</a>
+      <a href="analyzer.html" class="nav-link">Analyzer</a>
+      <a href="scanner.html" class="nav-link active">Scanner</a>
+      <a href="settings.html" class="nav-link">Settings</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-btn" onclick="cycleTheme()">◐</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Market Scanner</h1>
+        <p class="page-subtitle">ATH/ATL hits · News-driven opportunities · Macro & war alerts · AI buy timing</p>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+        <span class="market-status" id="lastScanned" style="font-size:0.75rem;color:var(--muted)">Not scanned yet</span>
+        <button class="analyze-btn" onclick="runFullScan()">⟳ Scan Now</button>
+      </div>
+    </div>
+
+    <!-- Watchlist config -->
+    <div class="scanner-config-card">
+      <div class="scanner-config-row">
+        <div class="config-group">
+          <label class="config-label">Market</label>
+          <select id="scanMarket" class="exchange-select">
+            <option value="us">US Stocks</option>
+            <option value="india">Indian Stocks</option>
+            <option value="both" selected>Both</option>
+          </select>
+        </div>
+        <div class="config-group">
+          <label class="config-label">Drop Alert Threshold</label>
+          <select id="dropThreshold" class="exchange-select">
+            <option value="30">30%+ drop from 52W high</option>
+            <option value="40">40%+ drop</option>
+            <option value="50" selected>50%+ drop</option>
+            <option value="60">60%+ drop</option>
+          </select>
+        </div>
+        <div class="config-group">
+          <label class="config-label">Scan Type</label>
+          <select id="scanType" class="exchange-select">
+            <option value="all" selected>Full Scan (ATH + ATL + News)</option>
+            <option value="ath">Near All-Time High only</option>
+            <option value="atl">Near All-Time Low / Big drops</option>
+            <option value="news">News + Macro events only</option>
+          </select>
+        </div>
+        <div class="config-group">
+          <label class="config-label">Custom watchlist</label>
+          <input type="text" id="customWatchlist" class="ticker-input" placeholder="AAPL,TSLA,RELIANCE..." style="width:220px"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="scanLoading" class="loading-state hidden">
+      <div class="loader-ring"></div>
+      <p id="scanLoadingMsg">Scanning markets...</p>
+      <div class="scan-progress-wrap">
+        <div class="scan-progress-bar" id="scanProgressBar"></div>
+      </div>
+    </div>
+
+    <!-- Results Grid -->
+    <div id="scanResults" class="hidden">
+
+      <!-- Summary row -->
+      <div class="scan-summary-row" id="scanSummaryRow"></div>
+
+      <!-- Near ATH section -->
+      <div id="athSection" class="scan-section hidden">
+        <div class="scan-section-header">
+          <span class="scan-section-icon ath-icon">▲</span>
+          <span>Near All-Time High</span>
+          <span class="scan-count" id="athCount">0</span>
+          <span class="scan-section-sub">Within 5% of 52-week high — momentum stocks</span>
+        </div>
+        <div class="scan-cards" id="athCards"></div>
+      </div>
+
+      <!-- Big Drop / Near ATL section -->
+      <div id="atlSection" class="scan-section hidden">
+        <div class="scan-section-header">
+          <span class="scan-section-icon atl-icon">▼</span>
+          <span>Significant Drops / Near Lows</span>
+          <span class="scan-count" id="atlCount">0</span>
+          <span class="scan-section-sub">50%+ drop from 52W high — potential value opportunities</span>
+        </div>
+        <div class="scan-cards" id="atlCards"></div>
+      </div>
+
+      <!-- Biggest movers today -->
+      <div id="moversSection" class="scan-section hidden">
+        <div class="scan-section-header">
+          <span class="scan-section-icon mover-icon">⚡</span>
+          <span>Today's Big Movers</span>
+          <span class="scan-count" id="moversCount">0</span>
+          <span class="scan-section-sub">Stocks moving ±3% or more today</span>
+        </div>
+        <div class="scan-cards" id="moversCards"></div>
+      </div>
+
+      <!-- News & Macro AI Brief -->
+      <div id="newsSection" class="ai-card scan-section">
+        <div class="card-header">
+          <span>📰 News & Macro Intelligence <span class="ai-badge">Groq LLM</span></span>
+          <button class="refresh-ai-btn" onclick="runNewsBrief()">↻ Refresh</button>
+        </div>
+        <div class="news-tabs">
+          <button class="tab-btn active" onclick="switchNewsTopic('macro', this)">🌍 Macro & War</button>
+          <button class="tab-btn" onclick="switchNewsTopic('sector', this)">📊 Sector Trends</button>
+          <button class="tab-btn" onclick="switchNewsTopic('opportunities', this)">💡 Opportunities</button>
+          <button class="tab-btn" onclick="switchNewsTopic('risks', this)">⚠ Risks to Watch</button>
+        </div>
+        <div id="newsContent" class="ai-content">
+          <div class="ai-placeholder">Click ↻ Refresh to get latest AI market intelligence briefing.</div>
+        </div>
+      </div>
+
+      <!-- Buy Timing AI for flagged stocks -->
+      <div id="timingSection" class="ai-card scan-section hidden">
+        <div class="card-header">
+          <span>⏱ Buy Timing Analysis <span class="ai-badge">Groq LLM</span></span>
+        </div>
+        <div class="timing-subtext">AI assessment for stocks flagged in this scan — should you buy now, wait, or avoid?</div>
+        <div id="timingContent" class="ai-content">
+          <div class="ai-placeholder">Run a scan to get buy timing analysis on flagged stocks.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No results yet -->
+    <div id="scanEmpty" class="empty-state">
+      <div class="empty-icon">⟳</div>
+      <h3>Scanner Ready</h3>
+      <p>Click "Scan Now" to check your watchlist for ATH/ATL hits, big moves, and AI-powered buy signals</p>
+      <button class="analyze-btn" onclick="runFullScan()">⟳ Run First Scan</button>
+    </div>
+  </main>
+
+  <!-- Stock detail modal -->
+  <div id="stockModal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:600px">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalTitle">—</h3>
+          <span id="modalSubtitle" style="color:var(--muted);font-size:0.8rem"></span>
+        </div>
+        <button class="modal-close" onclick="closeStockModal()">✕</button>
+      </div>
+      <div class="modal-body" style="gap:0.75rem">
+        <div class="modal-metrics" id="modalMetrics"></div>
+        <div class="ai-card" style="margin:0;padding:1rem">
+          <div class="card-header" style="margin-bottom:0.75rem">
+            <span>⏱ Should I buy this now? <span class="ai-badge">Groq LLM</span></span>
+            <button class="refresh-ai-btn" id="modalRefreshBtn">↻ Re-analyze</button>
+          </div>
+          <div id="modalAI" class="ai-content" style="min-height:60px">
+            <div class="ai-loading"><div class="loader-ring small"></div> Analyzing...</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a id="modalAnalyzeLink" href="#" class="analyze-btn" style="text-decoration:none">Open Full Analysis →</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // ── WATCHLISTS ──────────────────────────────────────────────
+    const US_WATCHLIST = [
+      'AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA','JPM','V','JNJ',
+      'WMT','XOM','BAC','MA','PG','UNH','HD','ORCL','AVGO','AMD',
+      'NFLX','DIS','PYPL','INTC','PFE','KO','MRK','T','VZ','GE',
+      'BA','CAT','NKE','MCD','SBUX','UBER','LYFT','SNAP','PLTR','RIVN'
+    ];
+    const IN_WATCHLIST = [
+      'RELIANCE.NS','TCS.NS','HDFCBANK.NS','INFY.NS','ICICIBANK.NS',
+      'HINDUNILVR.NS','WIPRO.NS','TATAMOTORS.NS','ADANIENT.NS','BAJFINANCE.NS',
+      'SBIN.NS','AXISBANK.NS','KOTAKBANK.NS','LTIM.NS','SUNPHARMA.NS',
+      'MARUTI.NS','TITAN.NS','NESTLEIND.NS','ULTRACEMCO.NS','POWERGRID.NS',
+      'TATASTEEL.NS','JSWSTEEL.NS','ONGC.NS','COALINDIA.NS','NTPC.NS'
+    ];
+
+    let scanResults = [];
+    let currentNewsTopic = 'macro';
+    let newsBriefCache = {};
+    let currentModalTicker = '';
+    let currentModalData = {};
+
+    const DROP_THRESHOLD_DEFAULT = 50;
+
+    // ── MAIN SCAN ───────────────────────────────────────────────
+    async function runFullScan() {
+      const key = localStorage.getItem('groq_api_key');
+      const market = document.getElementById('scanMarket').value;
+      const dropThreshold = parseInt(document.getElementById('dropThreshold').value);
+      const scanType = document.getElementById('scanType').value;
+      const customRaw = document.getElementById('customWatchlist').value.trim();
+
+      let watchlist = [];
+      if (customRaw) {
+        watchlist = customRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+      } else {
+        if (market === 'us' || market === 'both') watchlist.push(...US_WATCHLIST);
+        if (market === 'india' || market === 'both') watchlist.push(...IN_WATCHLIST);
+      }
+
+      setVisible('scanEmpty', false);
+      setVisible('scanResults', false);
+      setVisible('scanLoading', true);
+      document.getElementById('scanProgressBar').style.width = '0%';
+      scanResults = [];
+
+      let done = 0;
+      const total = watchlist.length;
+
+      for (const ticker of watchlist) {
+        document.getElementById('scanLoadingMsg').textContent = `Scanning ${ticker}... (${done + 1}/${total})`;
+        document.getElementById('scanProgressBar').style.width = ((done / total) * 100) + '%';
+        try {
+          const currency = ticker.endsWith('.NS') || ticker.endsWith('.BO') ? 'INR' : 'USD';
+          const d = await fetchStockData(ticker, currency);
+          if (d && d.price) scanResults.push(d);
+        } catch(e) { /* skip failed tickers silently */ }
+        done++;
+        await sleep(120); // Rate limit protection
+      }
+
+      document.getElementById('scanProgressBar').style.width = '100%';
+      renderScanResults(scanResults, dropThreshold, scanType);
+      setVisible('scanLoading', false);
+      setVisible('scanResults', true);
+
+      const now = new Date();
+      document.getElementById('lastScanned').textContent = `Last scanned: ${now.toLocaleTimeString()}`;
+
+      // Auto-run news brief if key exists
+      if (key) runNewsBrief();
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ── RENDER RESULTS ──────────────────────────────────────────
+    function renderScanResults(data, dropThreshold, scanType) {
+      const athStocks = [], atlStocks = [], movers = [];
+
+      data.forEach(d => {
+        const sym = d.ticker.endsWith('.NS') || d.ticker.endsWith('.BO') ? '₹' : '$';
+        const dropFromHigh = d.high52 ? ((d.high52 - d.price) / d.high52 * 100) : null;
+        const riseFromLow = d.low52 ? ((d.price - d.low52) / d.low52 * 100) : null;
+        const nearATH = dropFromHigh !== null && dropFromHigh <= 5;
+        const bigDrop = dropFromHigh !== null && dropFromHigh >= dropThreshold;
+        const nearATL = riseFromLow !== null && riseFromLow <= 10;
+        const bigMover = d.changePct !== null && Math.abs(d.changePct) >= 3;
+
+        d._sym = sym;
+        d._dropFromHigh = dropFromHigh;
+        d._riseFromLow = riseFromLow;
+        d._nearATH = nearATH;
+        d._bigDrop = bigDrop || nearATL;
+        d._bigMover = bigMover;
+
+        if ((scanType === 'all' || scanType === 'ath') && nearATH) athStocks.push(d);
+        if ((scanType === 'all' || scanType === 'atl') && (bigDrop || nearATL)) atlStocks.push(d);
+        if (scanType === 'all' && bigMover) movers.push(d);
+      });
+
+      // Sort
+      athStocks.sort((a, b) => a._dropFromHigh - b._dropFromHigh);
+      atlStocks.sort((a, b) => b._dropFromHigh - a._dropFromHigh);
+      movers.sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+
+      // Summary
+      renderSummary(athStocks.length, atlStocks.length, movers.length, data.length);
+
+      // Sections
+      renderScanCards('athCards', athStocks, 'ath');
+      setText('athCount', athStocks.length);
+      setVisible('athSection', athStocks.length > 0);
+
+      renderScanCards('atlCards', atlStocks, 'atl');
+      setText('atlCount', atlStocks.length);
+      setVisible('atlSection', atlStocks.length > 0);
+
+      renderScanCards('moversCards', movers.slice(0, 15), 'mover');
+      setText('moversCount', movers.length);
+      setVisible('moversSection', movers.length > 0);
+
+      // Run timing AI if drops found
+      if (atlStocks.length > 0) runTimingAnalysis(atlStocks.slice(0, 8));
+    }
+
+    function renderSummary(ath, atl, movers, total) {
+      const el = document.getElementById('scanSummaryRow');
+      el.innerHTML = `
+        <div class="scan-summary-card">
+          <div class="scan-sum-val">${total}</div>
+          <div class="scan-sum-label">Stocks Scanned</div>
+        </div>
+        <div class="scan-summary-card ath-bg">
+          <div class="scan-sum-val ath-color">${ath}</div>
+          <div class="scan-sum-label">Near ATH</div>
+        </div>
+        <div class="scan-summary-card atl-bg">
+          <div class="scan-sum-val atl-color">${atl}</div>
+          <div class="scan-sum-label">Big Drops / Near Low</div>
+        </div>
+        <div class="scan-summary-card mover-bg">
+          <div class="scan-sum-val mover-color">${movers}</div>
+          <div class="scan-sum-label">Big Movers Today</div>
+        </div>
+      `;
+    }
+
+    function renderScanCards(containerId, stocks, type) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      if (!stocks.length) return;
+
+      stocks.forEach(d => {
+        const sym = d._sym;
+        const isUp = d.changePct >= 0;
+        const changeColor = isUp ? 'up' : 'down';
+        const sign = isUp ? '+' : '';
+
+        let badge = '';
+        let badgeClass = '';
+        if (type === 'ath') {
+          badge = `${d._dropFromHigh?.toFixed(1)}% from 52W high`;
+          badgeClass = 'badge-ath';
+        } else if (type === 'atl') {
+          if (d._dropFromHigh >= 50) { badge = `▼ ${d._dropFromHigh?.toFixed(0)}% from high`; badgeClass = 'badge-danger'; }
+          else if (d._dropFromHigh >= 30) { badge = `▼ ${d._dropFromHigh?.toFixed(0)}% from high`; badgeClass = 'badge-warn'; }
+          else { badge = `Near 52W low`; badgeClass = 'badge-warn'; }
+        } else {
+          badge = `${sign}${d.changePct?.toFixed(2)}% today`;
+          badgeClass = isUp ? 'badge-ath' : 'badge-danger';
+        }
+
+        const card = document.createElement('div');
+        card.className = 'scan-stock-card';
+        card.onclick = () => openStockModal(d);
+        card.innerHTML = `
+          <div class="scan-card-top">
+            <div>
+              <span class="stock-ticker-badge">${d.ticker}</span>
+              <span class="scan-badge ${badgeClass}">${badge}</span>
+            </div>
+            <span class="scan-card-price">${sym}${d.price?.toFixed(2)}</span>
+          </div>
+          <div class="scan-card-name">${d.name || d.ticker}</div>
+          <div class="scan-card-stats">
+            <span class="${changeColor}">${sign}${d.changePct?.toFixed(2)}% today</span>
+            <span>52W: ${sym}${d.low52?.toFixed(0)} – ${sym}${d.high52?.toFixed(0)}</span>
+            <span>PE: ${d.pe?.toFixed(1) || '—'}</span>
+            <span>${d.sector || '—'}</span>
+          </div>
+          <div class="scan-card-action">
+            <button class="refresh-ai-btn" onclick="event.stopPropagation();openStockModal(d_${sanitizeId(d.ticker)})">⏱ Timing Analysis</button>
+          </div>
+        `;
+        // store ref
+        window['d_' + sanitizeId(d.ticker)] = d;
+        container.appendChild(card);
+      });
+    }
+
+    function sanitizeId(s) { return s.replace(/[^a-z0-9]/gi, '_'); }
+
+    // ── STOCK MODAL ─────────────────────────────────────────────
+    async function openStockModal(d) {
+      currentModalTicker = d.ticker;
+      currentModalData = d;
+      const sym = d._sym || (d.ticker.endsWith('.NS') || d.ticker.endsWith('.BO') ? '₹' : '$');
+      const sign = d.changePct >= 0 ? '+' : '';
+
+      document.getElementById('modalTitle').textContent = `${d.ticker} — ${d.name || d.ticker}`;
+      document.getElementById('modalSubtitle').textContent = `${d.exchange || ''} · ${d.sector || ''}`;
+
+      document.getElementById('modalMetrics').innerHTML = `
+        <div class="modal-metrics-grid">
+          <div class="metric-card"><div class="metric-label">Price</div><div class="metric-value">${sym}${d.price?.toFixed(2)}</div></div>
+          <div class="metric-card"><div class="metric-label">Today</div><div class="metric-value ${d.changePct>=0?'up':'down'}">${sign}${d.changePct?.toFixed(2)}%</div></div>
+          <div class="metric-card"><div class="metric-label">52W High</div><div class="metric-value">${sym}${d.high52?.toFixed(2)}</div></div>
+          <div class="metric-card"><div class="metric-label">52W Low</div><div class="metric-value">${sym}${d.low52?.toFixed(2)}</div></div>
+          <div class="metric-card"><div class="metric-label">Drop from High</div><div class="metric-value ${d._dropFromHigh > 30 ? 'down' : ''}">${d._dropFromHigh?.toFixed(1)}%</div></div>
+          <div class="metric-card"><div class="metric-label">P/E Ratio</div><div class="metric-value">${d.pe?.toFixed(1) || '—'}</div></div>
+        </div>
+      `;
+
+      const isIN = d.ticker.endsWith('.NS') || d.ticker.endsWith('.BO');
+      const fullPage = isIN ? 'india.html' : 'index.html';
+      const baseTicker = d.ticker.replace('.NS', '').replace('.BO', '');
+      document.getElementById('modalAnalyzeLink').href = `${fullPage}#${baseTicker}`;
+      document.getElementById('modalAnalyzeLink').onclick = (e) => {
+        e.preventDefault();
+        const input = window.open(fullPage, '_self');
+        setTimeout(() => {
+          const el = document.querySelector('#tickerInput');
+          if (el) { el.value = baseTicker; }
+        }, 500);
+      };
+
+      setVisible('stockModal', true);
+      document.getElementById('stockModal').style.display = 'flex';
+
+      document.getElementById('modalRefreshBtn').onclick = () => runModalTimingAI(d);
+      await runModalTimingAI(d);
+    }
+
+    function closeStockModal() {
+      document.getElementById('stockModal').style.display = 'none';
+      document.getElementById('stockModal').classList.add('hidden');
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('stockModal').addEventListener('click', function(e) {
+        if (e.target === this) closeStockModal();
+      });
+    });
+
+    async function runModalTimingAI(d) {
+      const key = localStorage.getItem('groq_api_key');
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      const el = document.getElementById('modalAI');
+      if (!key) { el.innerHTML = '<div class="ai-no-key">⚠ Add Groq key in <a href="settings.html">Settings</a>.</div>'; return; }
+      el.innerHTML = '<div class="ai-loading"><div class="loader-ring small"></div> Analyzing timing...</div>';
+
+      const sym = d._sym || '$';
+      const prompt = buildTimingPrompt(d, sym);
+      try {
+        const res = await callGroq(key, model, prompt);
+        el.innerHTML = markdownToHtml(res);
+      } catch(e) {
+        el.innerHTML = `<div class="ai-error">⚠ ${e.message}</div>`;
+      }
+    }
+
+    // ── BUY TIMING AI ───────────────────────────────────────────
+    async function runTimingAnalysis(stocks) {
+      const key = localStorage.getItem('groq_api_key');
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      const el = document.getElementById('timingContent');
+      setVisible('timingSection', true);
+      if (!key) { el.innerHTML = '<div class="ai-no-key">⚠ Add Groq API key in <a href="settings.html">Settings</a>.</div>'; return; }
+      el.innerHTML = '<div class="ai-loading"><div class="loader-ring small"></div> AI analyzing buy timing for flagged stocks...</div>';
+
+      const stocksText = stocks.map(d => {
+        const sym = d._sym || '$';
+        return `${d.ticker} (${d.name}): Price ${sym}${d.price?.toFixed(2)}, Down ${d._dropFromHigh?.toFixed(0)}% from 52W high of ${sym}${d.high52?.toFixed(2)}, Today: ${d.changePct?.toFixed(2)}%, P/E: ${d.pe?.toFixed(1)||'N/A'}, Beta: ${d.beta?.toFixed(2)||'N/A'}, Sector: ${d.sector||'N/A'}`;
+      }).join('\n');
+
+      const prompt = `You are a professional stock market strategist. The following stocks have been flagged by a scanner as having significant drops from their 52-week highs or approaching all-time lows.
+
+**FLAGGED STOCKS:**
+${stocksText}
+
+For each stock, provide a **Buy Timing Assessment**:
+
+**[TICKER]** — [BUY NOW / WAIT / AVOID / ACCUMULATE SLOWLY]
+- **Why it dropped**: Most likely reason (sector rotation, earnings miss, macro headwinds, etc.)
+- **Is the drop overdone?**: Based on fundamentals (P/E, sector, beta)
+- **Buy timing**: Should you buy now, wait for more downside, or stage entries?
+- **Key level to watch**: Price or % drop level that would make it more attractive
+- **Risk**: Main downside risk if wrong
+- **Verdict**: 1 sentence summary
+
+Focus on actionable timing guidance. Consider current macro environment (interest rates, geopolitics, sector headwinds). Be direct and specific. Use markdown.`;
+
+      try {
+        const res = await callGroq(key, model, prompt);
+        el.innerHTML = markdownToHtml(res);
+      } catch(e) {
+        el.innerHTML = `<div class="ai-error">⚠ AI Error: ${e.message}</div>`;
+      }
+    }
+
+    // ── NEWS BRIEF ──────────────────────────────────────────────
+    async function runNewsBrief() {
+      await switchNewsTopic(currentNewsTopic, document.querySelector('.news-tabs .tab-btn.active'));
+    }
+
+    async function switchNewsTopic(topic, btn) {
+      currentNewsTopic = topic;
+      document.querySelectorAll('.news-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+
+      const key = localStorage.getItem('groq_api_key');
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      const el = document.getElementById('newsContent');
+
+      if (!key) { el.innerHTML = '<div class="ai-no-key">⚠ Add Groq API key in <a href="settings.html">Settings</a> to get news intelligence.</div>'; return; }
+
+      if (newsBriefCache[topic]) { el.innerHTML = newsBriefCache[topic]; return; }
+
+      el.innerHTML = '<div class="ai-loading"><div class="loader-ring small"></div> Generating market intelligence...</div>';
+
+      const prompts = {
+        macro: `You are a macro strategist and geopolitical analyst. Today's date context: early 2025.
+
+Provide a comprehensive market intelligence brief covering:
+
+## 🌍 Global Macro Environment
+Current state of: US economy, Federal Reserve policy, inflation trends, USD strength.
+
+## ⚔️ Geopolitical Risks & War Impact
+Active conflicts and their market impact:
+- Which sectors are affected (defense, oil, commodities, supply chains)?
+- Which stocks historically benefit from geopolitical tensions?
+- Which markets are most at risk?
+
+## 📊 Market Regime
+Are we in: bull market, bear market, or sideways chop? Key indicators.
+
+## 🎯 Key Events to Watch (Next 30 Days)
+Fed meetings, earnings seasons, economic data releases, elections, geopolitical flashpoints.
+
+## 💡 Macro Plays
+2-3 specific trade ideas based on the macro environment (e.g., long defense, short consumer discretionary, etc.)
+
+Be specific, current, and actionable. Use markdown with clear sections.`,
+
+        sector: `You are a sector rotation strategist.
+
+Provide a sector intelligence brief:
+
+## 🔥 Hot Sectors Right Now
+Top 3 sectors showing strength — why and which stocks to watch.
+
+## ❄️ Cold Sectors / Avoid
+Top 3 sectors under pressure — why and when might they recover.
+
+## 🔄 Sector Rotation Signal
+Where is money flowing? From what sectors into which?
+
+## 🇮🇳 India-Specific Sectors
+NSE/BSE sector trends: IT, Banking, Pharma, Auto, Infra, PSU — brief on each.
+
+## 🇺🇸 US Sector Breakdown
+S&P sectors: Tech, Finance, Healthcare, Energy, Consumer — brief on each.
+
+## 🎯 Best Sector Plays Right Now
+2-3 specific sector ETFs or sector-leader stocks to consider.
+
+Use markdown. Be specific and actionable.`,
+
+        opportunities: `You are a stock opportunities scout and value investor.
+
+Identify current market opportunities:
+
+## 💎 Value Opportunities
+Stocks or sectors that appear oversold or undervalued relative to fundamentals. Name specific examples.
+
+## 📈 Growth at Reasonable Price (GARP)
+Stocks with strong growth but not overvalued. Specific examples.
+
+## 🏆 Quality at Discount
+High-quality companies (strong moat, good balance sheet) trading below historical valuations.
+
+## 🇮🇳 India Opportunities
+2-3 specific NSE/BSE stocks that look interesting right now and why.
+
+## 🇺🇸 US Opportunities
+2-3 specific US stocks that look interesting right now and why.
+
+## ⚡ Short-term Catalysts
+Events coming up that could move specific stocks significantly.
+
+Be specific with ticker names. Explain the opportunity thesis concisely. Use markdown.`,
+
+        risks: `You are a risk analyst and market strategist.
+
+Identify key risks investors should monitor:
+
+## 🔴 Top 5 Market Risks Right Now
+Each with: risk description, probability (high/medium/low), market impact, and what to do.
+
+## 📉 Crash Scenarios
+What could cause a 20-30% correction? How likely? Warning signs to watch.
+
+## 🏦 Banking & Financial Risk
+Credit conditions, bank stress, liquidity — current status.
+
+## 🛢️ Commodity Risks
+Oil, gold, copper — key levels and what breaking them means for equities.
+
+## 🇮🇳 India-Specific Risks
+Rupee, RBI policy, FII flows, political risk — current assessment.
+
+## 🛡️ How to Hedge
+Practical hedging suggestions for a retail investor with a mixed US+India portfolio.
+
+Be direct about risks. Don't sugarcoat. Use markdown.`
+      };
+
+      try {
+        const res = await callGroq(key, model, prompts[topic] || prompts.macro);
+        const html = markdownToHtml(res);
+        newsBriefCache[topic] = html;
+        el.innerHTML = html;
+      } catch(e) {
+        el.innerHTML = `<div class="ai-error">⚠ AI Error: ${e.message}</div>`;
+      }
+    }
+
+    // ── TIMING PROMPT BUILDER ───────────────────────────────────
+    function buildTimingPrompt(d, sym) {
+      return `You are a professional stock trader and timing analyst.
+
+**Stock:** ${d.ticker} (${d.name})
+**Current Price:** ${sym}${d.price?.toFixed(2)}
+**52-Week High:** ${sym}${d.high52?.toFixed(2)}
+**52-Week Low:** ${sym}${d.low52?.toFixed(2)}
+**Drop from 52W High:** ${d._dropFromHigh?.toFixed(1)}%
+**Rise from 52W Low:** ${d._riseFromLow?.toFixed(1)}%
+**Today's Change:** ${d.changePct?.toFixed(2)}%
+**P/E Ratio:** ${d.pe?.toFixed(1) || 'N/A'}
+**Beta:** ${d.beta?.toFixed(2) || 'N/A'}
+**Sector:** ${d.sector || 'N/A'}
+**Market Cap:** ${formatBig(d.marketCap, sym)}
+**Profit Margin:** ${d.profitMargin ? (d.profitMargin*100).toFixed(1)+'%' : 'N/A'}
+
+Provide a **Buy Timing Analysis**:
+
+## Verdict
+**[BUY NOW / WAIT FOR MORE DIPS / ACCUMULATE SLOWLY / AVOID]** — 1 sentence reason.
+
+## Why It's at This Level
+What likely caused this drop or high? Fundamental or technical?
+
+## Is It a Buying Opportunity?
+Assess whether the drop is overdone or justified. Use P/E, sector context, beta.
+
+## Timing Strategy
+- **If buying now**: What % of position? Why?
+- **If waiting**: What price level or catalyst to wait for?
+- **DCA suggestion**: Should you spread entries?
+
+## Key Levels
+- Support: ${sym}___  (price where buying likely picks up)
+- Strong support: ${sym}___
+- Stop-loss suggestion: ${sym}___
+
+## Risk / Reward
+Potential upside vs downside from current price. Is it worth the risk?
+
+Be specific with price levels and reasoning. Under 300 words.`;
+    }
+
+    // ── AUTO SCAN on page load if previously scanned ────────────
+    const lastScan = localStorage.getItem('scanner_last_scan');
+    if (lastScan) {
+      const age = Date.now() - parseInt(lastScan);
+      if (age < 4 * 60 * 60 * 1000) { // < 4 hours old
+        document.getElementById('lastScanned').textContent = `Last scanned: ${new Date(parseInt(lastScan)).toLocaleTimeString()}`;
+      }
+    }
+
+    initTheme();
+  </script>
+</body>
+</html>

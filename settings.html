@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockIQ — Settings</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">◈</span>
+      <span class="brand-name">StockIQ</span>
+    </div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">US Markets</a>
+      <a href="india.html" class="nav-link">India</a>
+      <a href="portfolio.html" class="nav-link">Portfolio</a>
+      <a href="settings.html" class="nav-link active">Settings</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-btn" onclick="cycleTheme()">◐</button>
+    </div>
+  </nav>
+
+  <main class="main-content settings-main">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">Configure your API key, theme & preferences</p>
+      </div>
+    </div>
+
+    <!-- API Key Section -->
+    <div class="settings-section">
+      <div class="settings-section-title">
+        <span class="settings-icon">🔑</span> Groq API Key
+      </div>
+      <div class="settings-desc">
+        Your API key is stored <strong>only in your browser's localStorage</strong> — it is never sent to any server except Groq's API directly from your browser. It is never embedded in the source code.
+      </div>
+      <div class="api-key-row">
+        <input type="password" id="apiKeyInput" class="ticker-input api-key-field" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"/>
+        <button class="analyze-btn" onclick="saveAPIKey()">Save Key</button>
+        <button class="refresh-ai-btn danger-btn" onclick="clearAPIKey()">Clear</button>
+      </div>
+      <div id="apiKeyStatus" class="key-status"></div>
+      <div class="settings-help">
+        <strong>How to get a free Groq API key:</strong><br>
+        1. Go to <a href="https://console.groq.com" target="_blank">console.groq.com</a><br>
+        2. Sign up (free, no credit card needed)<br>
+        3. Go to <strong>API Keys → Create API Key</strong><br>
+        4. Copy & paste it above<br>
+        5. Optional: In Groq console → <strong>Data Controls → Enable Zero Data Retention</strong>
+      </div>
+    </div>
+
+    <!-- Model Selection -->
+    <div class="settings-section">
+      <div class="settings-section-title">
+        <span class="settings-icon">🤖</span> AI Model
+      </div>
+      <div class="settings-desc">Choose which Groq model to use for analysis. All are free tier.</div>
+      <div class="model-grid">
+        <div class="model-card" id="model-llama-3.3-70b-versatile" onclick="selectModel('llama-3.3-70b-versatile')">
+          <div class="model-name">Llama 3.3 70B</div>
+          <div class="model-desc">Best quality · Recommended</div>
+          <div class="model-speed">⚡ Fast</div>
+        </div>
+        <div class="model-card" id="model-llama-4-scout-17b-16e-instruct" onclick="selectModel('llama-4-scout-17b-16e-instruct')">
+          <div class="model-name">Llama 4 Scout</div>
+          <div class="model-desc">Latest Llama 4 model</div>
+          <div class="model-speed">⚡ Fast</div>
+        </div>
+        <div class="model-card" id="model-qwen-qwen3-32b" onclick="selectModel('qwen/qwen3-32b')">
+          <div class="model-name">Qwen3 32B</div>
+          <div class="model-desc">Strong reasoning model</div>
+          <div class="model-speed">⚡⚡ Very Fast</div>
+        </div>
+        <div class="model-card" id="model-llama-3.1-8b-instant" onclick="selectModel('llama-3.1-8b-instant')">
+          <div class="model-name">Llama 3.1 8B</div>
+          <div class="model-desc">Lightweight & fastest</div>
+          <div class="model-speed">⚡⚡⚡ Fastest</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Theme Section -->
+    <div class="settings-section">
+      <div class="settings-section-title">
+        <span class="settings-icon">🎨</span> Visual Theme
+      </div>
+      <div class="settings-desc">All themes are available at any time. Switch anytime using the ◐ button in the navbar.</div>
+      <div class="theme-grid">
+        <div class="theme-swatch dark-swatch" id="swatch-dark" onclick="applyTheme('dark')">
+          <div class="swatch-preview"></div>
+          <div class="swatch-name">Dark Professional</div>
+          <div class="swatch-desc">Bloomberg-style dark</div>
+        </div>
+        <div class="theme-swatch light-swatch" id="swatch-light" onclick="applyTheme('light')">
+          <div class="swatch-preview"></div>
+          <div class="swatch-name">Clean Minimal</div>
+          <div class="swatch-desc">Light & airy</div>
+        </div>
+        <div class="theme-swatch bold-swatch" id="swatch-bold" onclick="applyTheme('bold')">
+          <div class="swatch-preview"></div>
+          <div class="swatch-name">Bold & Modern</div>
+          <div class="swatch-desc">Vibrant accents</div>
+        </div>
+        <div class="theme-swatch terminal-swatch" id="swatch-terminal" onclick="applyTheme('terminal')">
+          <div class="swatch-preview"></div>
+          <div class="swatch-name">Terminal</div>
+          <div class="swatch-desc">Hacker aesthetic</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data & Privacy -->
+    <div class="settings-section">
+      <div class="settings-section-title">
+        <span class="settings-icon">🔒</span> Data & Privacy
+      </div>
+      <div class="privacy-info">
+        <div class="privacy-item">
+          <span class="privacy-icon green">✓</span>
+          <span><strong>API Key</strong> — Stored only in your browser's localStorage. Never in code, never on any server.</span>
+        </div>
+        <div class="privacy-item">
+          <span class="privacy-icon green">✓</span>
+          <span><strong>Portfolio Data</strong> — Stored only in your browser's localStorage. Never leaves your device.</span>
+        </div>
+        <div class="privacy-item">
+          <span class="privacy-icon green">✓</span>
+          <span><strong>Stock Queries</strong> — Sent directly to Yahoo Finance (free, public API) & Groq for AI. No middleman.</span>
+        </div>
+        <div class="privacy-item">
+          <span class="privacy-icon green">✓</span>
+          <span><strong>Groq Privacy</strong> — Groq is contractually prohibited from using your data for model training by default.</span>
+        </div>
+      </div>
+      <button class="refresh-ai-btn danger-btn mt-1" onclick="clearAllData()">🗑 Clear All Local Data</button>
+    </div>
+
+    <!-- About -->
+    <div class="settings-section">
+      <div class="settings-section-title">
+        <span class="settings-icon">ℹ</span> About StockIQ
+      </div>
+      <div class="settings-desc">
+        <strong>StockIQ</strong> is a personal stock analysis tool using:<br><br>
+        • <strong>Yahoo Finance</strong> — Free real-time stock data (US & India)<br>
+        • <strong>Groq API</strong> — Free AI analysis (Llama, Qwen models)<br>
+        • <strong>Chart.js</strong> — Price history charts<br><br>
+        This is a static website — no backend, no server, no database. Everything runs in your browser.<br><br>
+        <em>Not financial advice. Always do your own research.</em>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    function saveAPIKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (!key) { showKeyStatus('Please enter an API key.', 'error'); return; }
+      if (!key.startsWith('gsk_')) { showKeyStatus('⚠ Key should start with gsk_ — double-check it.', 'warn'); }
+      localStorage.setItem('groq_api_key', key);
+      document.getElementById('apiKeyInput').value = '';
+      showKeyStatus('✓ API key saved successfully!', 'success');
+    }
+
+    function clearAPIKey() {
+      localStorage.removeItem('groq_api_key');
+      document.getElementById('apiKeyInput').value = '';
+      showKeyStatus('API key cleared.', 'warn');
+    }
+
+    function showKeyStatus(msg, type) {
+      const el = document.getElementById('apiKeyStatus');
+      el.textContent = msg;
+      el.className = 'key-status ' + type;
+      setTimeout(() => { el.textContent = ''; el.className = 'key-status'; }, 4000);
+    }
+
+    function selectModel(model) {
+      localStorage.setItem('groq_model', model);
+      document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+      // Sanitize model name for use as element ID (replace / with -)
+      const safeId = 'model-' + model.replace(/\//g, '-');
+      const card = document.getElementById(safeId);
+      if (card) card.classList.add('selected');
+    }
+
+    function applyTheme(theme) {
+      setTheme(theme);
+      document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('selected'));
+      document.getElementById('swatch-' + theme)?.classList.add('selected');
+    }
+
+    function clearAllData() {
+      if (!confirm('This will clear your API key, portfolio holdings, and theme preferences. Continue?')) return;
+      localStorage.clear();
+      location.reload();
+    }
+
+    // Load current state
+    function loadSettings() {
+      const key = localStorage.getItem('groq_api_key');
+      if (key) showKeyStatus('✓ API key is set (' + key.substring(0,8) + '...)', 'success');
+
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      selectModel(model);
+
+      const theme = localStorage.getItem('stockiq_theme') || 'dark';
+      document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('selected'));
+      document.getElementById('swatch-' + theme)?.classList.add('selected');
+    }
+
+    initTheme();
+    loadSettings();
+  </script>
+</body>
+</html>

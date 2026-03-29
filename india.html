@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockIQ — India Markets</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">◈</span>
+      <span class="brand-name">StockIQ</span>
+    </div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">US Markets</a>
+      <a href="india.html" class="nav-link active">India</a>
+      <a href="portfolio.html" class="nav-link">Portfolio</a>
+      <a href="advisor.html" class="nav-link">Advisor</a>
+      <a href="analyzer.html" class="nav-link">Analyzer</a>
+      <a href="scanner.html" class="nav-link">Scanner</a>
+      <a href="settings.html" class="nav-link">Settings</a>
+    </div>
+    <div class="nav-right">
+      <span class="market-status" id="marketStatus">● CHECKING...</span>
+      <button class="theme-btn" onclick="cycleTheme()">◐</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">India Markets</h1>
+        <p class="page-subtitle">NSE · BSE · AI-powered analysis</p>
+      </div>
+      <div class="ticker-input-group">
+        <div class="exchange-select-wrap">
+          <select id="exchangeSelect" class="exchange-select">
+            <option value="NS">NSE (.NS)</option>
+            <option value="BO">BSE (.BO)</option>
+          </select>
+        </div>
+        <input type="text" id="tickerInput" class="ticker-input" placeholder="Symbol (RELIANCE, TCS...)" onkeydown="if(event.key==='Enter') analyzeStock()"/>
+        <button class="analyze-btn" onclick="analyzeStock()">Analyze ▶</button>
+      </div>
+    </div>
+
+    <div class="quick-picks">
+      <span class="quick-label">Nifty 50 picks:</span>
+      <button class="quick-chip" onclick="quickAnalyze('RELIANCE')">RELIANCE</button>
+      <button class="quick-chip" onclick="quickAnalyze('TCS')">TCS</button>
+      <button class="quick-chip" onclick="quickAnalyze('HDFCBANK')">HDFCBANK</button>
+      <button class="quick-chip" onclick="quickAnalyze('INFY')">INFY</button>
+      <button class="quick-chip" onclick="quickAnalyze('ICICIBANK')">ICICIBANK</button>
+      <button class="quick-chip" onclick="quickAnalyze('HINDUNILVR')">HINDUNILVR</button>
+      <button class="quick-chip" onclick="quickAnalyze('WIPRO')">WIPRO</button>
+      <button class="quick-chip" onclick="quickAnalyze('TATAMOTORS')">TATAMOTORS</button>
+    </div>
+
+    <div id="loadingState" class="loading-state hidden">
+      <div class="loader-ring"></div>
+      <p>Fetching BSE/NSE data & running AI analysis...</p>
+    </div>
+
+    <div id="errorState" class="error-state hidden">
+      <span class="error-icon">⚠</span>
+      <p id="errorMsg">Something went wrong.</p>
+    </div>
+
+    <div id="results" class="results hidden">
+      <div class="stock-header-card">
+        <div class="stock-title-row">
+          <div>
+            <h2 class="stock-name" id="stockName">—</h2>
+            <div class="stock-meta-row">
+              <span class="stock-ticker-badge" id="stockTicker">—</span>
+              <span class="stock-exchange" id="stockExchange">—</span>
+              <span class="stock-sector" id="stockSector">—</span>
+            </div>
+          </div>
+          <div class="price-block">
+            <div class="current-price" id="currentPrice">—</div>
+            <div class="price-change" id="priceChange">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Market Cap</div><div class="metric-value" id="marketCap">—</div></div>
+        <div class="metric-card"><div class="metric-label">P/E Ratio</div><div class="metric-value" id="peRatio">—</div></div>
+        <div class="metric-card"><div class="metric-label">52W High</div><div class="metric-value" id="high52">—</div></div>
+        <div class="metric-card"><div class="metric-label">52W Low</div><div class="metric-value" id="low52">—</div></div>
+        <div class="metric-card"><div class="metric-label">Volume</div><div class="metric-value" id="volume">—</div></div>
+        <div class="metric-card"><div class="metric-label">Book Value</div><div class="metric-value" id="bookValue">—</div></div>
+        <div class="metric-card"><div class="metric-label">Div Yield</div><div class="metric-value" id="divYield">—</div></div>
+        <div class="metric-card"><div class="metric-label">Beta</div><div class="metric-value" id="beta">—</div></div>
+        <div class="metric-card"><div class="metric-label">EPS (TTM)</div><div class="metric-value" id="eps">—</div></div>
+        <div class="metric-card"><div class="metric-label">Profit Margin</div><div class="metric-value" id="profitMargin">—</div></div>
+        <div class="metric-card"><div class="metric-label">Revenue (TTM)</div><div class="metric-value" id="revenue">—</div></div>
+        <div class="metric-card"><div class="metric-label">P/B Ratio</div><div class="metric-value" id="pbRatio">—</div></div>
+      </div>
+
+      <div class="chart-div-row">
+        <div class="chart-card">
+          <div class="card-header">
+            <span>Price History (₹)</span>
+            <div class="range-btns">
+              <button class="range-btn active" onclick="setRange('1mo',this)">1M</button>
+              <button class="range-btn" onclick="setRange('3mo',this)">3M</button>
+              <button class="range-btn" onclick="setRange('6mo',this)">6M</button>
+              <button class="range-btn" onclick="setRange('1y',this)">1Y</button>
+            </div>
+          </div>
+          <canvas id="priceChart" height="200"></canvas>
+        </div>
+        <div class="dividend-card">
+          <div class="card-header">Dividend Info</div>
+          <div class="div-item"><span>Annual Dividend</span><span id="annualDiv">—</span></div>
+          <div class="div-item"><span>Yield</span><span id="divYield2">—</span></div>
+          <div class="div-item"><span>Ex-Dividend Date</span><span id="exDate">—</span></div>
+          <div class="div-item"><span>Pay Date</span><span id="payDate">—</span></div>
+          <div class="div-item"><span>Payout Ratio</span><span id="payoutRatio">—</span></div>
+          <div class="div-item"><span>Face Value</span><span id="faceValue">—</span></div>
+        </div>
+      </div>
+
+      <div class="ai-card">
+        <div class="card-header">
+          <span>◈ AI Analysis <span class="ai-badge">Groq LLM</span></span>
+          <button class="refresh-ai-btn" onclick="runAIAnalysis()">↻ Re-analyze</button>
+        </div>
+        <div id="aiAnalysis" class="ai-content">
+          <div class="ai-placeholder">AI analysis will appear here...</div>
+        </div>
+      </div>
+
+      <!-- AI Chat -->
+      <div class="ai-card chat-card" id="chatCard">
+        <div class="card-header">
+          <span>💬 Ask AI about <span id="chatTickerLabel">this stock</span> <span class="ai-badge">Groq LLM</span></span>
+          <button class="refresh-ai-btn" onclick="clearChat()">✕ Clear</button>
+        </div>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" class="ticker-input chat-input" placeholder="Ask anything... e.g. How does this compare to sector peers on NSE?" onkeydown="if(event.key==='Enter') sendChat()"/>
+          <button class="analyze-btn" onclick="sendChat()">Send ▶</button>
+        </div>
+        <div class="chat-suggestions">
+          <button class="quick-chip" onclick="askSuggestion('What are the biggest risks for this stock?')">Biggest risks?</button>
+          <button class="quick-chip" onclick="askSuggestion('How does it compare to Nifty 50 peers?')">Nifty comparison</button>
+          <button class="quick-chip" onclick="askSuggestion('Is the promoter holding healthy?')">Promoter holding</button>
+          <button class="quick-chip" onclick="askSuggestion('What macro factors affect this stock?')">Macro factors</button>
+          <button class="quick-chip" onclick="askSuggestion('Is the dividend sustainable?')">Dividend safety?</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="apiKeyWarning" class="api-warning hidden">
+    ⚠ No Groq API key set — AI analysis disabled. <a href="settings.html">Add key in Settings →</a>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let currentTicker = '';
+    let currentStockData = {};
+    let priceChart = null;
+    let currentRange = '1mo';
+
+    function quickAnalyze(sym) {
+      document.getElementById('tickerInput').value = sym;
+      analyzeStock();
+    }
+
+    async function analyzeStock() {
+      const sym = document.getElementById('tickerInput').value.trim().toUpperCase();
+      const exch = document.getElementById('exchangeSelect').value;
+      if (!sym) return;
+      const ticker = sym + '.' + exch;
+      currentTicker = ticker;
+
+      setVisible('results', false);
+      setVisible('errorState', false);
+      setVisible('loadingState', true);
+
+      try {
+        const data = await fetchStockData(ticker, 'INR');
+        currentStockData = data;
+        renderINStock(data, exch);
+        await loadChart(ticker, currentRange);
+        setVisible('loadingState', false);
+        setVisible('results', true);
+        checkAPIKey() && runAIAnalysis();
+      } catch(e) {
+        setVisible('loadingState', false);
+        setVisible('errorState', true);
+        document.getElementById('errorMsg').textContent = e.message || 'Failed to fetch data.';
+      }
+    }
+
+    function renderINStock(d, exch) {
+      setText('stockName', d.name || d.ticker);
+      setText('stockTicker', d.ticker);
+      setText('stockExchange', exch === 'NS' ? 'NSE' : 'BSE');
+      setText('stockSector', d.sector || '');
+      setText('currentPrice', d.price ? '₹' + d.price.toFixed(2) : '—');
+
+      const changeEl = document.getElementById('priceChange');
+      if (d.change !== undefined && d.change !== null) {
+        const sign = d.change >= 0 ? '+' : '';
+        changeEl.textContent = `${sign}${d.change.toFixed(2)} (${sign}${d.changePct?.toFixed(2)}%)`;
+        changeEl.className = 'price-change ' + (d.change >= 0 ? 'up' : 'down');
+      }
+
+      setText('marketCap', formatBig(d.marketCap, '₹'));
+      setText('peRatio', d.pe ? d.pe.toFixed(2) : '—');
+      setText('high52', d.high52 ? '₹' + d.high52.toFixed(2) : '—');
+      setText('low52', d.low52 ? '₹' + d.low52.toFixed(2) : '—');
+      setText('volume', formatBig(d.volume));
+      setText('bookValue', d.bookValue ? '₹' + d.bookValue.toFixed(2) : '—');
+      setText('divYield', d.divYield ? d.divYield.toFixed(2) + '%' : 'N/A');
+      setText('beta', d.beta ? d.beta.toFixed(2) : '—');
+      setText('eps', d.eps ? '₹' + d.eps.toFixed(2) : '—');
+      setText('profitMargin', d.profitMargin ? (d.profitMargin * 100).toFixed(1) + '%' : '—');
+      setText('revenue', formatBig(d.revenue, '₹'));
+      setText('pbRatio', d.pbRatio ? d.pbRatio.toFixed(2) : '—');
+      setText('annualDiv', d.annualDiv ? '₹' + d.annualDiv.toFixed(2) : 'N/A');
+      setText('divYield2', d.divYield ? d.divYield.toFixed(2) + '%' : 'N/A');
+      setText('exDate', d.exDate || 'N/A');
+      setText('payDate', d.payDate || 'N/A');
+      setText('payoutRatio', d.payoutRatio ? (d.payoutRatio * 100).toFixed(1) + '%' : 'N/A');
+      setText('faceValue', d.faceValue ? '₹' + d.faceValue : 'N/A');
+    }
+
+    async function loadChart(ticker, range) {
+      try {
+        const h = await fetchPriceHistory(ticker, range);
+        renderChart(h, '₹');
+      } catch(e) { console.warn('Chart error', e); }
+    }
+
+    function renderChart(history, symbol = '₹') {
+      const ctx = document.getElementById('priceChart').getContext('2d');
+      if (priceChart) priceChart.destroy();
+      const isUp = history.prices[history.prices.length-1] >= history.prices[0];
+      const color = isUp ? '#00e5a0' : '#ff4d6d';
+      const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim() || '#ffffff10';
+      const textColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#888';
+
+      priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: history.dates,
+          datasets: [{ data: history.prices, borderColor: color, backgroundColor: color + '18',
+            fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }]
+        },
+        options: {
+          responsive: true, animation: { duration: 600 },
+          plugins: { legend: { display: false },
+            tooltip: { callbacks: { label: c => symbol + c.parsed.y.toFixed(2) } }
+          },
+          scales: {
+            x: { ticks: { color: textColor, maxTicksLimit: 7 }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor, callback: v => symbol + v.toFixed(0) }, grid: { color: gridColor } }
+          }
+        }
+      });
+    }
+
+    async function setRange(range, btn) {
+      document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentRange = range;
+      await loadChart(currentTicker, range);
+    }
+
+    async function runAIAnalysis() {
+      const key = localStorage.getItem('groq_api_key');
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      const el = document.getElementById('aiAnalysis');
+      if (!key) {
+        el.innerHTML = '<div class="ai-no-key">⚠ Add Groq key in <a href="settings.html">Settings</a>.</div>';
+        return;
+      }
+      el.innerHTML = '<div class="ai-loading"><div class="loader-ring small"></div> AI is analyzing...</div>';
+      const d = currentStockData;
+      const prompt = buildINPrompt(d);
+      try {
+        const res = await callGroq(key, model, prompt);
+        el.innerHTML = markdownToHtml(res);
+      } catch(e) {
+        el.innerHTML = `<div class="ai-error">⚠ AI Error: ${e.message}</div>`;
+      }
+    }
+
+    function checkAPIKey() {
+      const key = localStorage.getItem('groq_api_key');
+      if (!key) { setVisible('apiKeyWarning', true); return false; }
+      return true;
+    }
+
+    function updateMarketStatus() {
+      const now = new Date();
+      const h = now.getUTCHours(), m = now.getUTCMinutes(), day = now.getUTCDay();
+      // NSE: 9:15AM–3:30PM IST = 3:45–10:00 UTC
+      const open = (h > 3 || (h === 3 && m >= 45)) && (h < 10 || (h === 10 && m === 0));
+      const weekend = day === 0 || day === 6;
+      const el = document.getElementById('marketStatus');
+      if (!weekend && open) { el.textContent = '● NSE OPEN'; el.style.color = 'var(--green)'; }
+      else { el.textContent = '● NSE CLOSED'; el.style.color = 'var(--red)'; }
+    }
+
+    // ── CHAT ──────────────────────────────────────────────────
+    let chatHistory = [];
+    function clearChat() { chatHistory = []; document.getElementById('chatMessages').innerHTML = ''; }
+    function askSuggestion(text) { document.getElementById('chatInput').value = text; sendChat(); }
+
+    async function sendChat() {
+      const input = document.getElementById('chatInput');
+      const msg = input.value.trim();
+      if (!msg || !currentTicker) return;
+      const key = localStorage.getItem('groq_api_key');
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      if (!key) { appendChatMsg('assistant', '⚠ Add Groq API key in <a href="settings.html">Settings</a>.'); return; }
+      input.value = '';
+      appendChatMsg('user', msg);
+      const thinkingId = appendChatMsg('assistant', '<div class="ai-loading"><div class="loader-ring small"></div> Thinking...</div>', true);
+      const d = currentStockData;
+      const systemPrompt = `You are a professional stock analyst specializing in Indian markets (NSE/BSE). The user is analyzing ${d.ticker} (${d.name}).
+Current data: Price ₹${d.price?.toFixed(2)}, P/E ${d.pe?.toFixed(2)||'N/A'}, P/B ${d.pbRatio?.toFixed(2)||'N/A'}, Market Cap ${formatBig(d.marketCap,'₹')}, 52W Range ₹${d.low52?.toFixed(2)}–₹${d.high52?.toFixed(2)}, Beta ${d.beta?.toFixed(2)||'N/A'}, Div Yield ${d.divYield?.toFixed(2)||'N/A'}%, Revenue ${formatBig(d.revenue,'₹')}, Profit Margin ${d.profitMargin?(d.profitMargin*100).toFixed(1)+'%':'N/A'}.
+Answer questions in context of Indian markets. Use markdown. Never give direct buy/sell advice.`;
+      chatHistory.push({ role: 'user', content: msg });
+      try {
+        const res = await callGroqChat(key, model, systemPrompt, chatHistory);
+        chatHistory.push({ role: 'assistant', content: res });
+        document.getElementById(thinkingId).outerHTML = `<div class="chat-msg assistant"><div class="chat-label">◈ AI</div><div class="chat-bubble">${markdownToHtml(res)}</div></div>`;
+      } catch(e) {
+        document.getElementById(thinkingId).outerHTML = `<div class="chat-msg assistant"><div class="chat-label">◈ AI</div><div class="chat-bubble ai-error">⚠ ${e.message}</div></div>`;
+      }
+      const msgs = document.getElementById('chatMessages');
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function appendChatMsg(role, html, returnId = false) {
+      const msgs = document.getElementById('chatMessages');
+      const id = 'msg-' + Date.now() + Math.random().toString(36).slice(2);
+      const label = role === 'user' ? 'You' : '◈ AI';
+      msgs.innerHTML += `<div class="chat-msg ${role}" id="${id}"><div class="chat-label">${label}</div><div class="chat-bubble">${html}</div></div>`;
+      msgs.scrollTop = msgs.scrollHeight;
+      if (returnId) return id;
+    }
+
+    const _origAnalyze = analyzeStock;
+    analyzeStock = async function() { clearChat(); await _origAnalyze(); if (currentTicker) setText('chatTickerLabel', currentTicker); };
+
+    updateMarketStatus();
+    initTheme();
+    checkAPIKey();
+  </script>
+</body>
+</html>

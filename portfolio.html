@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockIQ — Portfolio</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">◈</span>
+      <span class="brand-name">StockIQ</span>
+    </div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">US Markets</a>
+      <a href="india.html" class="nav-link">India</a>
+      <a href="portfolio.html" class="nav-link active">Portfolio</a>
+      <a href="advisor.html" class="nav-link">Advisor</a>
+      <a href="analyzer.html" class="nav-link">Analyzer</a>
+      <a href="scanner.html" class="nav-link">Scanner</a>
+      <a href="settings.html" class="nav-link">Settings</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-btn" onclick="cycleTheme()">◐</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Portfolio</h1>
+        <p class="page-subtitle">Track, analyze & get AI insights on your holdings</p>
+      </div>
+      <button class="analyze-btn" onclick="openAddModal()">+ Add Holding</button>
+    </div>
+
+    <!-- Portfolio summary cards -->
+    <div class="portfolio-summary hidden" id="portfolioSummary">
+      <div class="summary-card">
+        <div class="summary-label">Total Invested</div>
+        <div class="summary-value" id="totalInvested">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Current Value</div>
+        <div class="summary-value" id="currentValue">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Total P&L</div>
+        <div class="summary-value" id="totalPnl">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Day's Change</div>
+        <div class="summary-value" id="dayChange">—</div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">◈</div>
+      <h3>No holdings yet</h3>
+      <p>Add your stocks to track performance and get AI-powered portfolio analysis</p>
+      <button class="analyze-btn" onclick="openAddModal()">+ Add Your First Holding</button>
+    </div>
+
+    <!-- Holdings table -->
+    <div id="holdingsSection" class="hidden">
+      <div class="section-header">
+        <h3 class="section-title">Holdings</h3>
+        <div class="section-actions">
+          <button class="refresh-ai-btn" onclick="refreshAll()">↻ Refresh Prices</button>
+          <button class="refresh-ai-btn ai-analyze-btn" onclick="runPortfolioAI()">◈ AI Analyze Portfolio</button>
+        </div>
+      </div>
+      <div class="holdings-table-wrap">
+        <table class="holdings-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Name</th>
+              <th>Qty</th>
+              <th>Avg Buy</th>
+              <th>Current</th>
+              <th>Invested</th>
+              <th>Value</th>
+              <th>P&L</th>
+              <th>P&L %</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="holdingsBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Charts row -->
+      <div class="portfolio-charts">
+        <div class="chart-card half">
+          <div class="card-header">Allocation by Value</div>
+          <canvas id="allocationChart" height="250"></canvas>
+        </div>
+        <div class="chart-card half">
+          <div class="card-header">P&L by Stock</div>
+          <canvas id="pnlChart" height="250"></canvas>
+        </div>
+      </div>
+
+      <!-- AI Analysis -->
+      <div class="ai-card">
+        <div class="card-header">
+          <span>◈ Portfolio AI Analysis <span class="ai-badge">Groq LLM</span></span>
+          <button class="refresh-ai-btn" onclick="runPortfolioAI()">↻ Re-analyze</button>
+        </div>
+        <div id="portfolioAI" class="ai-content">
+          <div class="ai-placeholder">Click "AI Analyze Portfolio" to get insights on your holdings.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Holding Modal -->
+  <div id="addModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Add Holding</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Exchange</label>
+          <select id="modalExchange" class="exchange-select">
+            <option value="">US (no suffix)</option>
+            <option value=".NS">NSE (.NS)</option>
+            <option value=".BO">BSE (.BO)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Ticker Symbol</label>
+          <input type="text" id="modalTicker" class="ticker-input" placeholder="e.g. AAPL or RELIANCE"/>
+        </div>
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="number" id="modalQty" class="ticker-input" placeholder="e.g. 10" min="0.001" step="any"/>
+        </div>
+        <div class="form-group">
+          <label>Average Buy Price</label>
+          <input type="number" id="modalBuyPrice" class="ticker-input" placeholder="e.g. 150.00" min="0" step="any"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="analyze-btn" onclick="addHolding()">Add to Portfolio</button>
+        <button class="refresh-ai-btn" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let holdings = JSON.parse(localStorage.getItem('portfolio_holdings') || '[]');
+    let liveData = {};
+    let allocChart = null, pnlChart = null;
+
+    function saveHoldings() {
+      localStorage.setItem('portfolio_holdings', JSON.stringify(holdings));
+    }
+
+    function openAddModal() {
+      const modal = document.getElementById('addModal');
+      modal.style.display = 'flex';
+      modal.classList.remove('hidden');
+      document.getElementById('modalTicker').focus();
+    }
+    function closeModal() {
+      const modal = document.getElementById('addModal');
+      modal.style.display = 'none';
+      modal.classList.add('hidden');
+    }
+
+    function addHolding() {
+      const sym = document.getElementById('modalTicker').value.trim().toUpperCase();
+      const exch = document.getElementById('modalExchange').value;
+      const qty = parseFloat(document.getElementById('modalQty').value);
+      const buy = parseFloat(document.getElementById('modalBuyPrice').value);
+      if (!sym || !qty || !buy) { alert('Please fill all fields.'); return; }
+      const ticker = sym + exch;
+      const existing = holdings.findIndex(h => h.ticker === ticker);
+      if (existing >= 0) {
+        const h = holdings[existing];
+        const totalShares = h.qty + qty;
+        h.avgBuy = ((h.avgBuy * h.qty) + (buy * qty)) / totalShares;
+        h.qty = totalShares;
+      } else {
+        holdings.push({ ticker, qty, avgBuy: buy });
+      }
+      saveHoldings();
+      closeModal();
+      document.getElementById('modalTicker').value = '';
+      document.getElementById('modalQty').value = '';
+      document.getElementById('modalBuyPrice').value = '';
+      renderPortfolio();
+      refreshAll();
+    }
+
+    function removeHolding(ticker) {
+      holdings = holdings.filter(h => h.ticker !== ticker);
+      delete liveData[ticker];
+      saveHoldings();
+      renderPortfolio();
+    }
+
+    async function refreshAll() {
+      for (const h of holdings) {
+        try {
+          const currency = h.ticker.endsWith('.NS') || h.ticker.endsWith('.BO') ? 'INR' : 'USD';
+          const d = await fetchStockData(h.ticker, currency);
+          liveData[h.ticker] = d;
+        } catch(e) { console.warn('Failed to fetch', h.ticker, e); }
+      }
+      renderPortfolio();
+    }
+
+    function renderPortfolio() {
+      const hasHoldings = holdings.length > 0;
+
+      // Direct classList manipulation — more reliable than setVisible
+      ['emptyState'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.style.display = hasHoldings ? 'none' : ''; el.classList.toggle('hidden', hasHoldings); }
+      });
+      ['holdingsSection', 'portfolioSummary'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.style.display = hasHoldings ? '' : 'none'; el.classList.toggle('hidden', !hasHoldings); }
+      });
+      if (!hasHoldings) return;
+
+      // Track USD and INR separately — never mix currencies
+      let inv = { '$': 0, '₹': 0 };
+      let cur = { '$': 0, '₹': 0 };
+      let day = { '$': 0, '₹': 0 };
+
+      const tbody = document.getElementById('holdingsBody');
+      tbody.innerHTML = '';
+
+      holdings.forEach(h => {
+        const d = liveData[h.ticker];
+        const sym = h.ticker.endsWith('.NS') || h.ticker.endsWith('.BO') ? '₹' : '$';
+        const invested = h.qty * h.avgBuy;
+        const current = d ? h.qty * d.price : null;
+        const pnl = current !== null ? current - invested : null;
+        const pnlPct = pnl !== null ? (pnl / invested) * 100 : null;
+        const dayCh = d ? h.qty * (d.change || 0) : null;
+
+        if (current !== null) { inv[sym] += invested; cur[sym] += current; }
+        if (dayCh !== null) day[sym] += dayCh;
+
+        const pnlClass = pnl !== null ? (pnl >= 0 ? 'up' : 'down') : '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="stock-ticker-badge small">${h.ticker}</span></td>
+          <td>${d?.name || '—'}</td>
+          <td>${h.qty}</td>
+          <td>${sym}${h.avgBuy.toFixed(2)}</td>
+          <td>${d ? sym + d.price.toFixed(2) : '—'}</td>
+          <td>${sym}${invested.toFixed(2)}</td>
+          <td>${current !== null ? sym + current.toFixed(2) : '—'}</td>
+          <td class="${pnlClass}">${pnl !== null ? (pnl >= 0 ? '+' : '') + sym + Math.abs(pnl).toFixed(2) : '—'}</td>
+          <td class="${pnlClass}">${pnlPct !== null ? (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%' : '—'}</td>
+          <td><button class="remove-btn" onclick="removeHolding('${h.ticker}')">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Build summary strings showing each currency separately
+      function summarize(obj) {
+        return Object.entries(obj)
+          .filter(([, v]) => v !== 0)
+          .map(([sym, v]) => sym + v.toFixed(2))
+          .join(' + ') || '—';
+      }
+
+      function summarizePnl(invObj, curObj) {
+        return Object.keys(invObj)
+          .filter(sym => invObj[sym] !== 0)
+          .map(sym => {
+            const pnl = curObj[sym] - invObj[sym];
+            const pct = (pnl / invObj[sym] * 100).toFixed(2);
+            const sign = pnl >= 0 ? '+' : '';
+            return `${sign}${sym}${Math.abs(pnl).toFixed(2)} (${sign}${pct}%)`;
+          }).join(' | ') || '—';
+      }
+
+      function summarizeDay(obj) {
+        return Object.entries(obj)
+          .filter(([, v]) => v !== 0)
+          .map(([sym, v]) => (v >= 0 ? '+' : '') + sym + Math.abs(v).toFixed(2))
+          .join(' | ') || '—';
+      }
+
+      const totalPnl = (cur['$'] - inv['$']) + (cur['₹'] - inv['₹']);
+      const totalDay = day['$'] + day['₹'];
+
+      setText('totalInvested', summarize(inv));
+      setText('currentValue', summarize(cur));
+
+      const pnlEl = document.getElementById('totalPnl');
+      pnlEl.textContent = summarizePnl(inv, cur);
+      pnlEl.className = 'summary-value ' + (totalPnl >= 0 ? 'up' : 'down');
+
+      const dcEl = document.getElementById('dayChange');
+      dcEl.textContent = summarizeDay(day);
+      dcEl.className = 'summary-value ' + (totalDay >= 0 ? 'up' : 'down');
+
+      renderAllocationChart();
+      renderPnLChart();
+    }
+
+    function renderAllocationChart() {
+      const ctx = document.getElementById('allocationChart').getContext('2d');
+      if (allocChart) allocChart.destroy();
+      const labels = [], values = [], colors = [];
+      const palette = ['#00e5a0','#4fc3f7','#f59e0b','#ff4d6d','#a78bfa','#fb923c','#34d399','#60a5fa'];
+      holdings.forEach((h, i) => {
+        const d = liveData[h.ticker];
+        if (d) { labels.push(h.ticker); values.push(h.qty * d.price); colors.push(palette[i % palette.length]); }
+      });
+      allocChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+        options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#aaa', font: { family: 'IBM Plex Mono' } } } } }
+      });
+    }
+
+    function renderPnLChart() {
+      const ctx = document.getElementById('pnlChart').getContext('2d');
+      if (pnlChart) pnlChart.destroy();
+      const labels = [], values = [], colors = [];
+      holdings.forEach(h => {
+        const d = liveData[h.ticker];
+        if (d) {
+          const pnl = (d.price - h.avgBuy) * h.qty;
+          labels.push(h.ticker); values.push(pnl);
+          colors.push(pnl >= 0 ? '#00e5a0' : '#ff4d6d');
+        }
+      });
+      pnlChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4 }] },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#aaa' }, grid: { color: '#ffffff08' } },
+            y: { ticks: { color: '#aaa' }, grid: { color: '#ffffff08' } }
+          }
+        }
+      });
+    }
+
+    async function runPortfolioAI() {
+      const key = localStorage.getItem('groq_api_key');
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      const el = document.getElementById('portfolioAI');
+      if (!key) { el.innerHTML = '<div class="ai-no-key">⚠ Add Groq API key in <a href="settings.html">Settings</a>.</div>'; return; }
+      if (!holdings.length) return;
+
+      el.innerHTML = '<div class="ai-loading"><div class="loader-ring small"></div> Analyzing your portfolio...</div>';
+
+      const holdingsSummary = holdings.map(h => {
+        const d = liveData[h.ticker];
+        if (!d) return `${h.ticker}: qty=${h.qty}, avg_buy=${h.avgBuy}`;
+        const pnl = ((d.price - h.avgBuy) / h.avgBuy * 100).toFixed(1);
+        return `${h.ticker} (${d.name}): qty=${h.qty}, avg_buy=${h.avgBuy.toFixed(2)}, current=${d.price.toFixed(2)}, P&L=${pnl}%, sector=${d.sector||'N/A'}`;
+      }).join('\n');
+
+      const prompt = `You are a professional portfolio analyst. Analyze this investment portfolio:
+
+${holdingsSummary}
+
+Provide a comprehensive analysis covering:
+1. **Portfolio Overview** — Total composition, sector distribution, geographic exposure
+2. **Risk Assessment** — Concentration risk, correlation, volatility profile
+3. **Performance Analysis** — Winners, underperformers, and why
+4. **Diversification** — Is the portfolio well-diversified? What's missing?
+5. **Recommendations** — 3 specific, actionable suggestions to improve the portfolio
+6. **Overall Verdict** — Bull/bear outlook for this specific portfolio mix
+
+Be data-driven, specific, and professional. Under 500 words. Use markdown formatting.`;
+
+      try {
+        const res = await callGroq(key, model, prompt);
+        el.innerHTML = markdownToHtml(res);
+      } catch(e) {
+        el.innerHTML = `<div class="ai-error">⚠ AI Error: ${e.message}</div>`;
+      }
+    }
+
+    initTheme();
+
+    // Wire overlay click to close modal
+    document.getElementById('addModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    renderPortfolio();
+    if (holdings.length > 0) refreshAll();
+  </script>
+</body>
+</html>

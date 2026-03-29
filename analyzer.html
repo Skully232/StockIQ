@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StockIQ — Portfolio Analyzer</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand"><span class="brand-icon">◈</span><span class="brand-name">StockIQ</span></div>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">US Markets</a>
+      <a href="india.html" class="nav-link">India</a>
+      <a href="portfolio.html" class="nav-link">Portfolio</a>
+      <a href="advisor.html" class="nav-link">Advisor</a>
+      <a href="analyzer.html" class="nav-link active">Analyzer</a>
+      <a href="scanner.html" class="nav-link">Scanner</a>
+      <a href="settings.html" class="nav-link">Settings</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-btn" onclick="cycleTheme()">◐</button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Portfolio Analyzer</h1>
+        <p class="page-subtitle">Upload your portfolio — get deep AI analysis with specific hold/sell/add recommendations</p>
+      </div>
+    </div>
+
+    <!-- Upload + Manual Entry Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('upload', this)">📁 Upload CSV/Excel</button>
+      <button class="tab-btn" onclick="switchTab('manual', this)">✏️ Enter Manually</button>
+      <button class="tab-btn" onclick="switchTab('paste', this)">📋 Paste Data</button>
+    </div>
+
+    <!-- Upload Tab -->
+    <div id="tab-upload" class="tab-content">
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event)">
+        <div class="upload-icon">⬆</div>
+        <div class="upload-title">Drop your portfolio file here</div>
+        <div class="upload-sub">CSV or Excel (.xlsx) · Max 5MB</div>
+        <div class="upload-sub">Columns needed: <code>Ticker, Quantity, Buy Price</code> (and optionally <code>Exchange</code>)</div>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileUpload(event)"/>
+      </div>
+      <div class="upload-template">
+        <span>Need a template? </span>
+        <button class="refresh-ai-btn" onclick="downloadTemplate()">⬇ Download CSV Template</button>
+      </div>
+    </div>
+
+    <!-- Manual Entry Tab -->
+    <div id="tab-manual" class="tab-content hidden">
+      <div class="manual-table-wrap">
+        <table class="holdings-table" id="manualTable">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Exchange</th>
+              <th>Quantity</th>
+              <th>Avg Buy Price</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="manualBody">
+            <tr class="manual-row">
+              <td><input type="text" class="ticker-input small-input" placeholder="AAPL"/></td>
+              <td><select class="exchange-select small-select"><option value="">US</option><option value=".NS">NSE</option><option value=".BO">BSE</option></select></td>
+              <td><input type="number" class="ticker-input small-input" placeholder="10" min="0.001" step="any"/></td>
+              <td><input type="number" class="ticker-input small-input" placeholder="150.00" min="0" step="any"/></td>
+              <td><button class="remove-btn" onclick="removeRow(this)">✕</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <button class="refresh-ai-btn" style="margin-top:0.75rem" onclick="addManualRow()">+ Add Row</button>
+      </div>
+    </div>
+
+    <!-- Paste Tab -->
+    <div id="tab-paste" class="tab-content hidden">
+      <div class="form-group">
+        <label>Paste your portfolio data (CSV format or plain text)</label>
+        <textarea id="pasteArea" class="advisor-textarea" placeholder="Ticker, Quantity, Buy Price, Exchange
+AAPL, 10, 150.00
+RELIANCE, 5, 2400.00, .NS
+TSLA, 3, 200.00
+TCS, 8, 3500.00, .NS"></textarea>
+      </div>
+    </div>
+
+    <!-- Parsed preview -->
+    <div id="parsedPreview" class="hidden">
+      <div class="section-header" style="margin-top:1.5rem">
+        <h3 class="section-title">Parsed Holdings (<span id="holdingCount">0</span> stocks)</h3>
+        <button class="refresh-ai-btn danger-btn" onclick="clearParsed()">✕ Clear</button>
+      </div>
+      <div class="holdings-table-wrap">
+        <table class="holdings-table">
+          <thead><tr><th>Ticker</th><th>Exchange</th><th>Qty</th><th>Avg Buy Price</th><th></th></tr></thead>
+          <tbody id="parsedBody"></tbody>
+        </table>
+      </div>
+
+      <div class="analyzer-context">
+        <div class="form-section-title" style="margin-bottom:0.75rem">🎯 Analysis Context (optional but recommended)</div>
+        <div class="advisor-grid" style="grid-template-columns: 1fr 1fr;">
+          <div class="form-group">
+            <label>Your Investment Goal</label>
+            <select id="analyzerGoal" class="exchange-select w100">
+              <option value="wealth">Long-term Wealth Building</option>
+              <option value="income">Passive Income / Dividends</option>
+              <option value="growth">Aggressive Growth</option>
+              <option value="balanced">Balanced Growth + Income</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Risk Tolerance</label>
+            <select id="analyzerRisk" class="exchange-select w100">
+              <option value="low">Low — Conservative</option>
+              <option value="moderate" selected>Moderate — Balanced</option>
+              <option value="high">High — Aggressive Growth</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:0.75rem">
+          <label>Additional notes (optional)</label>
+          <input type="text" id="analyzerNotes" class="ticker-input w100" placeholder="e.g. I'm 28 years old, long-term investor, don't want to sell tech stocks"/>
+        </div>
+      </div>
+
+      <div style="margin-top:1.5rem; display:flex; gap:1rem; align-items:center; flex-wrap:wrap">
+        <button class="analyze-btn big-btn" onclick="runDeepAnalysis()">◈ Run Deep AI Analysis ▶</button>
+        <p style="color:var(--muted); font-size:0.8rem">Will fetch live prices + run comprehensive AI analysis</p>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="analyzerLoading" class="loading-state hidden">
+      <div class="loader-ring"></div>
+      <p id="analyzerLoadingMsg">Fetching live prices for your holdings...</p>
+    </div>
+
+    <!-- Analysis Results -->
+    <div id="analyzerResults" class="hidden">
+
+      <!-- Per-stock ratings table -->
+      <div class="section-header" style="margin-top:0">
+        <h2 class="section-title">Stock-by-Stock Verdict</h2>
+        <button class="refresh-ai-btn" onclick="resetAnalyzer()">← Start Over</button>
+      </div>
+
+      <div class="holdings-table-wrap" style="margin-bottom:1rem">
+        <table class="holdings-table">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Current Price</th>
+              <th>Avg Buy</th>
+              <th>P&L</th>
+              <th>P&L %</th>
+              <th>AI Verdict</th>
+              <th>Conviction</th>
+            </tr>
+          </thead>
+          <tbody id="verdictBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Full AI analysis -->
+      <div class="ai-card">
+        <div class="card-header">
+          <span>◈ Deep Portfolio Analysis <span class="ai-badge">Groq LLM</span></span>
+          <button class="refresh-ai-btn" onclick="runDeepAnalysis()">↻ Re-analyze</button>
+        </div>
+        <div id="deepAnalysis" class="ai-content"></div>
+      </div>
+
+      <!-- Follow-up chat -->
+      <div class="ai-card chat-card">
+        <div class="card-header">
+          <span>💬 Ask follow-up questions <span class="ai-badge">Groq LLM</span></span>
+          <button class="refresh-ai-btn" onclick="clearAnalyzerChat()">✕ Clear</button>
+        </div>
+        <div id="analyzerChatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="analyzerChatInput" class="ticker-input chat-input" placeholder="e.g. Should I sell TSLA now or wait? What should I buy more of?" onkeydown="if(event.key==='Enter') sendAnalyzerChat()"/>
+          <button class="analyze-btn" onclick="sendAnalyzerChat()">Send ▶</button>
+        </div>
+        <div class="chat-suggestions">
+          <button class="quick-chip" onclick="askAnalyzer('Which stock should I add more money to right now?')">Where to add more?</button>
+          <button class="quick-chip" onclick="askAnalyzer('Which stock is the weakest link in my portfolio?')">Weakest link?</button>
+          <button class="quick-chip" onclick="askAnalyzer('How can I reduce my portfolio risk?')">Reduce risk</button>
+          <button class="quick-chip" onclick="askAnalyzer('What sectors am I missing?')">Missing sectors?</button>
+          <button class="quick-chip" onclick="askAnalyzer('What would a 20% market crash do to my portfolio?')">Crash scenario</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    let parsedHoldings = [];
+    let liveHoldingsData = {};
+    let deepAnalysisText = '';
+    let analyzerChatHistory = [];
+
+    // ── TABS ─────────────────────────────────────────────────
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+    }
+
+    // ── FILE UPLOAD ──────────────────────────────────────────
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('uploadZone').classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) processFile(file);
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (file) processFile(file);
+    }
+
+    function processFile(file) {
+      const reader = new FileReader();
+      if (file.name.endsWith('.csv')) {
+        reader.onload = e => parseCSV(e.target.result);
+        reader.readAsText(file);
+      } else {
+        alert('Please upload a CSV file. Excel support coming soon.');
+      }
+    }
+
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      const holdings = [];
+      for (let i = 0; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(s => s.trim().replace(/"/g, ''));
+        if (i === 0 && isNaN(parseFloat(parts[1]))) continue; // skip header
+        const [ticker, qty, buyPrice, exchange = ''] = parts;
+        if (!ticker || !qty || !buyPrice) continue;
+        const fullTicker = ticker + (exchange || '');
+        holdings.push({ ticker: fullTicker, qty: parseFloat(qty), avgBuy: parseFloat(buyPrice) });
+      }
+      if (holdings.length === 0) { alert('No valid holdings found. Check your CSV format.'); return; }
+      setParsedHoldings(holdings);
+    }
+
+    // ── MANUAL ENTRY ─────────────────────────────────────────
+    function addManualRow() {
+      const tbody = document.getElementById('manualBody');
+      const tr = document.createElement('tr');
+      tr.className = 'manual-row';
+      tr.innerHTML = `
+        <td><input type="text" class="ticker-input small-input" placeholder="AAPL"/></td>
+        <td><select class="exchange-select small-select"><option value="">US</option><option value=".NS">NSE</option><option value=".BO">BSE</option></select></td>
+        <td><input type="number" class="ticker-input small-input" placeholder="10" min="0.001" step="any"/></td>
+        <td><input type="number" class="ticker-input small-input" placeholder="150.00" min="0" step="any"/></td>
+        <td><button class="remove-btn" onclick="removeRow(this)">✕</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function removeRow(btn) { btn.closest('tr').remove(); }
+
+    function getManualHoldings() {
+      const rows = document.querySelectorAll('.manual-row');
+      const holdings = [];
+      rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const select = row.querySelector('select');
+        const ticker = inputs[0].value.trim().toUpperCase();
+        const exchange = select.value;
+        const qty = parseFloat(inputs[1].value);
+        const buy = parseFloat(inputs[2].value);
+        if (ticker && qty && buy) holdings.push({ ticker: ticker + exchange, qty, avgBuy: buy });
+      });
+      return holdings;
+    }
+
+    // ── PASTE PARSING ─────────────────────────────────────────
+    function getPasteHoldings() {
+      const text = document.getElementById('pasteArea').value.trim();
+      return text ? (parseCSV(text) || parsedHoldings) : [];
+    }
+
+    // ── SET PARSED HOLDINGS ───────────────────────────────────
+    function setParsedHoldings(holdings) {
+      parsedHoldings = holdings;
+      const tbody = document.getElementById('parsedBody');
+      tbody.innerHTML = '';
+      holdings.forEach((h, i) => {
+        const sym = h.ticker.endsWith('.NS') || h.ticker.endsWith('.BO') ? '₹' : '$';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="stock-ticker-badge small">${h.ticker}</span></td>
+          <td>${h.ticker.endsWith('.NS') ? 'NSE' : h.ticker.endsWith('.BO') ? 'BSE' : 'US'}</td>
+          <td>${h.qty}</td>
+          <td>${sym}${h.avgBuy.toFixed(2)}</td>
+          <td><button class="remove-btn" onclick="removeParsed(${i})">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      setText('holdingCount', holdings.length);
+      setVisible('parsedPreview', true);
+    }
+
+    function removeParsed(i) {
+      parsedHoldings.splice(i, 1);
+      setParsedHoldings(parsedHoldings);
+    }
+
+    function clearParsed() {
+      parsedHoldings = [];
+      setVisible('parsedPreview', false);
+    }
+
+    // ── COLLECT HOLDINGS FROM ACTIVE TAB ─────────────────────
+    function collectHoldings() {
+      const activeTab = document.querySelector('.tab-btn.active').textContent;
+      if (activeTab.includes('Upload') || activeTab.includes('Paste')) return parsedHoldings;
+      if (activeTab.includes('Manually')) return getManualHoldings();
+      return parsedHoldings;
+    }
+
+    // ── PARSE BUTTON for paste tab ────────────────────────────
+    // Auto-parse on tab content interaction
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('pasteArea').addEventListener('blur', () => {
+        const text = document.getElementById('pasteArea').value.trim();
+        if (text) parseCSV(text);
+      });
+    });
+
+    // ── DEEP ANALYSIS ─────────────────────────────────────────
+    async function runDeepAnalysis() {
+      const key = localStorage.getItem('groq_api_key');
+      if (!key) { alert('Add Groq API key in Settings first.'); return; }
+
+      let holdings = collectHoldings();
+      if (!holdings.length) { alert('No holdings found. Add stocks first.'); return; }
+
+      setVisible('parsedPreview', false);
+      setVisible('analyzerResults', false);
+      setVisible('analyzerLoading', true);
+      document.getElementById('analyzerLoadingMsg').textContent = 'Fetching live prices for your holdings...';
+
+      // Fetch live data
+      liveHoldingsData = {};
+      for (const h of holdings) {
+        try {
+          const currency = h.ticker.endsWith('.NS') || h.ticker.endsWith('.BO') ? 'INR' : 'USD';
+          const d = await fetchStockData(h.ticker, currency);
+          liveHoldingsData[h.ticker] = d;
+        } catch(e) { console.warn('Failed:', h.ticker); }
+      }
+
+      document.getElementById('analyzerLoadingMsg').textContent = 'Running deep AI analysis...';
+
+      // Build verdict table
+      const verdictBody = document.getElementById('verdictBody');
+      verdictBody.innerHTML = '';
+      const holdingsSummary = [];
+
+      holdings.forEach(h => {
+        const d = liveHoldingsData[h.ticker];
+        const sym = h.ticker.endsWith('.NS') || h.ticker.endsWith('.BO') ? '₹' : '$';
+        const currentPrice = d?.price;
+        const pnl = currentPrice ? (currentPrice - h.avgBuy) * h.qty : null;
+        const pnlPct = currentPrice ? ((currentPrice - h.avgBuy) / h.avgBuy * 100) : null;
+
+        holdingsSummary.push({
+          ticker: h.ticker,
+          name: d?.name || h.ticker,
+          qty: h.qty,
+          avgBuy: h.avgBuy,
+          currentPrice,
+          pnl,
+          pnlPct,
+          pe: d?.pe,
+          beta: d?.beta,
+          marketCap: d?.marketCap,
+          profitMargin: d?.profitMargin,
+          sector: d?.sector,
+          sym
+        });
+
+        const pnlClass = pnl !== null ? (pnl >= 0 ? 'up' : 'down') : '';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="stock-ticker-badge small">${h.ticker}</span><br><small style="color:var(--muted)">${d?.name||''}</small></td>
+          <td>${currentPrice ? sym + currentPrice.toFixed(2) : '—'}</td>
+          <td>${sym}${h.avgBuy.toFixed(2)}</td>
+          <td class="${pnlClass}">${pnl !== null ? (pnl>=0?'+':'')+sym+Math.abs(pnl).toFixed(2) : '—'}</td>
+          <td class="${pnlClass}">${pnlPct !== null ? (pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%' : '—'}</td>
+          <td id="verdict-${h.ticker.replace(/[^a-z0-9]/gi,'_')}"><div class="ai-loading small-loading"><div class="loader-ring small"></div></div></td>
+          <td id="conviction-${h.ticker.replace(/[^a-z0-9]/gi,'_')}">—</td>
+        `;
+        verdictBody.appendChild(tr);
+      });
+
+      setVisible('analyzerLoading', false);
+      setVisible('analyzerResults', true);
+
+      // Run full AI analysis
+      const goal = document.getElementById('analyzerGoal').options[document.getElementById('analyzerGoal').selectedIndex].text;
+      const risk = document.getElementById('analyzerRisk').options[document.getElementById('analyzerRisk').selectedIndex].text;
+      const notes = document.getElementById('analyzerNotes').value.trim();
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+
+      const summaryText = holdingsSummary.map(h =>
+        `${h.ticker} (${h.name}): qty=${h.qty}, avg_buy=${h.sym}${h.avgBuy.toFixed(2)}, current=${h.currentPrice ? h.sym+h.currentPrice.toFixed(2) : 'N/A'}, P&L=${h.pnlPct !== null ? h.pnlPct.toFixed(1)+'%' : 'N/A'}, P/E=${h.pe?.toFixed(1)||'N/A'}, Beta=${h.beta?.toFixed(2)||'N/A'}, Sector=${h.sector||'N/A'}, Margin=${h.profitMargin?(h.profitMargin*100).toFixed(1)+'%':'N/A'}`
+      ).join('\n');
+
+      const prompt = `You are a senior portfolio manager and stock analyst. Analyze this portfolio with institutional-grade depth.
+
+**INVESTOR PROFILE:**
+- Goal: ${goal}
+- Risk Tolerance: ${risk}
+${notes ? `- Notes: ${notes}` : ''}
+
+**PORTFOLIO HOLDINGS:**
+${summaryText}
+
+**Provide the following analysis:**
+
+## 1. Executive Summary
+Overall portfolio health score (1–10), key strengths, and critical issues in 3–4 sentences.
+
+## 2. Stock-by-Stock Verdict
+For EACH stock, provide:
+**[TICKER]** — Verdict: [STRONG HOLD / HOLD / REDUCE / SELL / ADD MORE]
+- Conviction: [HIGH/MEDIUM/LOW]
+- Reasoning: 2–3 specific sentences based on data
+- Action: Specific recommendation (e.g., "Hold, target ₹3200" or "Reduce by 30%, too concentrated")
+
+## 3. Portfolio Strengths
+What's working well in this portfolio.
+
+## 4. Red Flags
+Specific concerns — overvalued stocks, high concentration, poor fundamentals, sector risks.
+
+## 5. Diversification Gaps
+What sectors/geographies/asset classes are missing or underweight.
+
+## 6. Rebalancing Plan
+Specific rebalancing recommendations — what % to reduce, what to increase, in what order.
+
+## 7. Top 3 Actionable Recommendations
+The 3 most important things this investor should do in the next 30 days.
+
+## 8. Overall Portfolio Outlook
+12-month outlook based on current composition.
+
+Be specific, data-driven, and direct. Do not hedge every statement with disclaimers — give real opinions while noting they are analytical views only.`;
+
+      const el = document.getElementById('deepAnalysis');
+      el.innerHTML = '<div class="ai-loading"><div class="loader-ring small"></div> Running deep analysis...</div>';
+
+      try {
+        const res = await callGroq(key, model, prompt);
+        deepAnalysisText = res;
+        analyzerChatHistory = [];
+        el.innerHTML = markdownToHtml(res);
+
+        // Extract and display verdicts in table
+        updateVerdictTable(res, holdingsSummary);
+      } catch(e) {
+        el.innerHTML = `<div class="ai-error">⚠ AI Error: ${e.message}</div>`;
+      }
+    }
+
+    function updateVerdictTable(analysisText, holdings) {
+      const verdictMap = { 'STRONG HOLD': {label:'STRONG HOLD', cls:'verdict-stronghold'}, 'HOLD': {label:'HOLD', cls:'verdict-hold'}, 'ADD MORE': {label:'ADD MORE', cls:'verdict-add'}, 'REDUCE': {label:'REDUCE', cls:'verdict-reduce'}, 'SELL': {label:'SELL', cls:'verdict-sell'} };
+      const convictionMap = { 'HIGH': 'conv-high', 'MEDIUM': 'conv-medium', 'LOW': 'conv-low' };
+
+      holdings.forEach(h => {
+        const safeId = h.ticker.replace(/[^a-z0-9]/gi, '_');
+        const verdictEl = document.getElementById('verdict-' + safeId);
+        const convEl = document.getElementById('conviction-' + safeId);
+        if (!verdictEl) return;
+
+        // Search for verdict in analysis text
+        let foundVerdict = null, foundConv = null;
+        for (const v of Object.keys(verdictMap)) {
+          const re = new RegExp(h.ticker.replace('.','[.]') + '[^\\n]*Verdict[^:]*:[^\\n]*' + v, 'i');
+          if (re.test(analysisText)) { foundVerdict = v; break; }
+        }
+        if (!foundVerdict) {
+          for (const v of Object.keys(verdictMap)) {
+            const re = new RegExp('\\*\\*' + h.ticker.replace('.','[.]') + '\\*\\*[\\s\\S]{0,200}' + v, 'i');
+            if (re.test(analysisText)) { foundVerdict = v; break; }
+          }
+        }
+        for (const c of ['HIGH','MEDIUM','LOW']) {
+          const re = new RegExp(h.ticker.replace('.','[.]') + '[\\s\\S]{0,300}Conviction[^:]*:[^\\n]*' + c, 'i');
+          if (re.test(analysisText)) { foundConv = c; break; }
+        }
+
+        if (foundVerdict) {
+          const v = verdictMap[foundVerdict];
+          verdictEl.innerHTML = `<span class="verdict-badge ${v.cls}">${v.label}</span>`;
+        } else { verdictEl.innerHTML = '—'; }
+        if (foundConv) {
+          convEl.innerHTML = `<span class="conviction-dot ${convictionMap[foundConv]}">●</span> ${foundConv}`;
+        }
+      });
+    }
+
+    function resetAnalyzer() {
+      parsedHoldings = [];
+      liveHoldingsData = {};
+      deepAnalysisText = '';
+      analyzerChatHistory = [];
+      clearAnalyzerChat();
+      setVisible('analyzerResults', false);
+      setVisible('parsedPreview', false);
+      setVisible('analyzerLoading', false);
+    }
+
+    function clearAnalyzerChat() {
+      analyzerChatHistory = [];
+      document.getElementById('analyzerChatMessages').innerHTML = '';
+    }
+
+    function askAnalyzer(text) {
+      document.getElementById('analyzerChatInput').value = text;
+      sendAnalyzerChat();
+    }
+
+    async function sendAnalyzerChat() {
+      const input = document.getElementById('analyzerChatInput');
+      const msg = input.value.trim();
+      if (!msg) return;
+      const key = localStorage.getItem('groq_api_key');
+      const model = localStorage.getItem('groq_model') || 'llama-3.3-70b-versatile';
+      if (!key) return;
+
+      input.value = '';
+      appendAnalyzerMsg('user', msg);
+      const thinkingId = appendAnalyzerMsg('assistant', '<div class="ai-loading"><div class="loader-ring small"></div> Thinking...</div>', true);
+
+      const systemPrompt = `You are a senior portfolio analyst. You just completed this portfolio analysis:
+
+${deepAnalysisText}
+
+Answer the investor's follow-up question with specific, actionable advice referencing their actual holdings. Be direct and concise.`;
+
+      analyzerChatHistory.push({ role: 'user', content: msg });
+
+      try {
+        const res = await callGroqChat(key, model, systemPrompt, analyzerChatHistory);
+        analyzerChatHistory.push({ role: 'assistant', content: res });
+        document.getElementById(thinkingId).outerHTML = `<div class="chat-msg assistant"><div class="chat-label">◈ AI</div><div class="chat-bubble">${markdownToHtml(res)}</div></div>`;
+      } catch(e) {
+        document.getElementById(thinkingId).outerHTML = `<div class="chat-msg assistant"><div class="chat-label">◈ AI</div><div class="chat-bubble ai-error">⚠ ${e.message}</div></div>`;
+      }
+      document.getElementById('analyzerChatMessages').scrollTop = 99999;
+    }
+
+    function appendAnalyzerMsg(role, html, returnId = false) {
+      const msgs = document.getElementById('analyzerChatMessages');
+      const id = 'msg-' + Date.now() + Math.random().toString(36).slice(2);
+      const label = role === 'user' ? 'You' : '◈ AI';
+      msgs.innerHTML += `<div class="chat-msg ${role}" id="${id}"><div class="chat-label">${label}</div><div class="chat-bubble">${html}</div></div>`;
+      msgs.scrollTop = msgs.scrollHeight;
+      if (returnId) return id;
+    }
+
+    function downloadTemplate() {
+      const csv = 'Ticker,Quantity,Buy Price,Exchange\nAAPL,10,150.00,\nRELIANCE,5,2400.00,.NS\nTSLA,3,200.00,\nTCS,8,3500.00,.NS';
+      const a = document.createElement('a');
+      a.href = 'data:text/csv,' + encodeURIComponent(csv);
+      a.download = 'portfolio_template.csv';
+      a.click();
+    }
+
+    initTheme();
+  </script>
+</body>
+</html>
