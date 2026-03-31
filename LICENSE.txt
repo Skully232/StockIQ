@@ -1,0 +1,32 @@
+Copyright (c) 2025 [SHIVAM KUMAR S]
+
+All Rights Reserved.
+
+PERSONAL USE LICENSE
+
+Permission is granted to the original author only to use, run, and modify
+this software for personal, non-commercial purposes on their own devices.
+
+The following are strictly prohibited without explicit written permission
+from the copyright holder:
+
+1. Copying or reproducing this software or any portion of it
+2. Distributing, publishing, or sharing this source code publicly or privately
+   to any third party
+3. Sublicensing, selling, renting, or leasing this software
+4. Deploying this software as a public-facing product or service
+5. Using this software or any derivative work for commercial purposes
+6. Removing or altering this copyright notice or license terms
+
+This software is provided "as is", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose and non-infringement. In no event shall the
+author be liable for any claim, damages or other liability arising from the
+use of this software.
+
+This license does not grant any rights under trademark, patent, or trade
+secret law.
+
+Unauthorized use, copying, modification, or distribution of this software,
+in whole or in part, without the prior written permission of the copyright
+holder is strictly prohibited and may result in legal action.
